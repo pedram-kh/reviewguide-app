@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getStats, type StatsResponse } from "@/lib/api";
 
 // Stats change every time a lead is touched — never serve a cached /admin render.
@@ -27,7 +29,12 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-semibold text-zinc-900">Admin dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-zinc-900">Admin dashboard</h1>
+        <Link href="/admin/leads" className="text-sm text-zinc-500 underline">
+          Leads →
+        </Link>
+      </div>
       <p className="mt-1 text-sm text-zinc-500">Live counts from the backend admin API.</p>
 
       {error || !stats ? (
