@@ -6,6 +6,7 @@ import { type ReactNode, useRef, useState } from "react";
 import type { LeadDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { canTransitionTo } from "@/lib/leadTransitions";
+import { MAX_SENDS_PER_DAY } from "@/lib/limits";
 
 const CHANNELS = ["facebook", "email", "contact_form"] as const;
 const NOTES_AUTOSAVE_DELAY_MS = 800;
@@ -26,9 +27,11 @@ async function patchLead(leadId: number, body: Record<string, unknown>): Promise
 export function LeadDetailClient({
   lead: initialLead,
   backHref,
+  sentToday,
 }: {
   lead: LeadDetail;
   backHref: string;
+  sentToday: number;
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -129,6 +132,7 @@ export function LeadDetailClient({
   const canMarkSent = canTransitionTo(lead.status, "sent");
   const canSkip = canTransitionTo(lead.status, "dead");
   const healthBlocksSend = lead.health_flag && !healthReviewed;
+  const dailyCapReached = sentToday >= MAX_SENDS_PER_DAY;
 
   return (
     <div className="mt-4 space-y-8">
@@ -258,17 +262,19 @@ export function LeadDetailClient({
         <button
           type="button"
           onClick={markSent}
-          disabled={!canMarkSent || healthBlocksSend || busy === "mark_sent"}
+          disabled={!canMarkSent || healthBlocksSend || dailyCapReached || busy === "mark_sent"}
           className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           title={
             !canMarkSent
               ? `Cannot mark 'sent' from status '${lead.status}' (LOGIC.md §3)`
-              : healthBlocksSend
-                ? "Confirm you reviewed the health-flagged response first"
-                : undefined
+              : dailyCapReached
+                ? `Daily send cap (${MAX_SENDS_PER_DAY}/day, LOGIC.md §6) already reached today`
+                : healthBlocksSend
+                  ? "Confirm you reviewed the health-flagged response first"
+                  : undefined
           }
         >
-          {busy === "mark_sent" ? "Marking sent…" : "Mark sent"}
+          {dailyCapReached ? `Daily cap reached (${MAX_SENDS_PER_DAY}/${MAX_SENDS_PER_DAY})` : busy === "mark_sent" ? "Marking sent…" : "Mark sent"}
         </button>
 
         {canSkip && !showSkipConfirm && (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { BackendApiError, getLead, type LeadDetail } from "@/lib/api";
+import { BackendApiError, getLead, getStats, type LeadDetail } from "@/lib/api";
 
 import { LeadDetailClient } from "./LeadDetailClient";
 
@@ -24,11 +24,15 @@ export default async function LeadDetailPage({
 
   let lead: LeadDetail | null = null;
   let loadError: string | null = null;
+  let sentToday = 0;
   try {
     lead = await getLead(leadId);
+    // Best-effort: if stats fail to load, fall back to 0 rather than blocking the whole page —
+    // the backend's own 429 on the PATCH is still the real enforcement point either way.
+    sentToday = (await getStats()).sent_today;
   } catch (err) {
     if (err instanceof BackendApiError && err.status === 404) notFound();
-    loadError = err instanceof Error ? err.message : "Failed to load lead";
+    if (!lead) loadError = err instanceof Error ? err.message : "Failed to load lead";
   }
 
   return (
@@ -42,7 +46,7 @@ export default async function LeadDetailPage({
           Couldn&apos;t load lead {leadId}: {loadError}
         </div>
       ) : (
-        <LeadDetailClient lead={lead} backHref={backHref} />
+        <LeadDetailClient lead={lead} backHref={backHref} sentToday={sentToday} />
       )}
     </main>
   );

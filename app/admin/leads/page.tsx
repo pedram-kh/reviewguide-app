@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-import { listLeads, type LeadListFilters, type LeadListItem, type LeadSort, type LeadStatus } from "@/lib/api";
+import {
+  listLeads,
+  type LeadListFilters,
+  type LeadListItem,
+  type LeadSort,
+  type LeadStatus,
+} from "@/lib/api";
 import { formatDate } from "@/lib/format";
 
 import { LeadsFilterBar } from "./LeadsFilterBar";
@@ -53,12 +59,7 @@ export default async function LeadsPage({
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Leads</h1>
-        <Link href="/admin" className="text-sm text-zinc-500 underline">
-          Stats
-        </Link>
-      </div>
+      <h1 className="text-2xl font-semibold text-zinc-900">Leads</h1>
 
       {toast === "sent" && <ToastBanner text="Marked as sent." />}
       {toast === "skipped" && <ToastBanner text="Lead skipped to dead." />}

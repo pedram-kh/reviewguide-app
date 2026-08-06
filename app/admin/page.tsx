@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { getStats, type StatsResponse } from "@/lib/api";
 
 // Stats change every time a lead is touched — never serve a cached /admin render.
@@ -29,12 +27,7 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Admin dashboard</h1>
-        <Link href="/admin/leads" className="text-sm text-zinc-500 underline">
-          Leads →
-        </Link>
-      </div>
+      <h1 className="text-2xl font-semibold text-zinc-900">Admin dashboard</h1>
       <p className="mt-1 text-sm text-zinc-500">Live counts from the backend admin API.</p>
 
       {error || !stats ? (
@@ -65,6 +58,11 @@ export default async function AdminPage() {
             <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <StatCard label="Sent today" value={stats.sent_today} highlight />
               <StatCard label="Replies" value={stats.replies} highlight />
+              <StatCard
+                label="Reply rate (G2 gate metric)"
+                value={`${(stats.reply_rate * 100).toFixed(1)}%`}
+                highlight
+              />
               {Object.entries(stats.sent_by_channel).map(([channel, count]) => (
                 <StatCard key={channel} label={`Sent via ${channel}`} value={count} />
               ))}
@@ -82,7 +80,7 @@ function StatCard({
   highlight = false,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   highlight?: boolean;
 }) {
   return (

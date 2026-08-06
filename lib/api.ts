@@ -63,6 +63,9 @@ export interface StatsResponse {
   sent_today: number;
   sent_by_channel: Record<string, number>;
   replies: number;
+  // replies / total-ever-sent, as a fraction (0.0-1.0) — the G2 gate metric (ticket 3.4). 0.0
+  // when nothing has been sent yet.
+  reply_rate: number;
 }
 
 export function getStats(): Promise<StatsResponse> {
