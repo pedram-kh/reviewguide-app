@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { DARK_GLASS_CARD } from "@/lib/theme";
 
+import { VerifySubmitButton } from "./VerifySubmitButton";
+
 export const metadata: Metadata = { title: "Dokończ logowanie — ReviewGuide" };
 
 /**
@@ -12,6 +14,10 @@ export const metadata: Metadata = { title: "Dokończ logowanie — ReviewGuide" 
  * submitting the button below (or a scanner that also executes forms/JS, which none observed in
  * practice do) can trigger. This is what makes a plain GET here safe to hit any number of times,
  * including by a mailbox provider's automated link-prescanning.
+ *
+ * The submit button (VerifySubmitButton) is a small client component purely for a disabled/
+ * pending UI state (ticket 4.5 double-submit fix) — it makes no network call of its own; the
+ * form's own POST navigation to /api/auth/complete-verify is unchanged.
  */
 export default async function VerifyPage({
   searchParams,
@@ -34,12 +40,7 @@ export default async function VerifyPage({
         </p>
         <form action="/api/auth/complete-verify" method="POST" className="mt-6">
           <input type="hidden" name="token" value={token} />
-          <button
-            type="submit"
-            className="w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-          >
-            Zaloguj się do ReviewGuide
-          </button>
+          <VerifySubmitButton />
         </form>
       </div>
     </div>
