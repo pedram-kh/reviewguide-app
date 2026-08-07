@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getRequestOrigin } from "@/lib/requestOrigin";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 /**
@@ -46,7 +47,7 @@ async function checkCustomerSession(request: NextRequest): Promise<NextResponse>
   const session = token ? await verifySessionToken(token) : null;
 
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login", getRequestOrigin(request));
     return NextResponse.redirect(loginUrl);
   }
 

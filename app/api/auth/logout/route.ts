@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestOrigin } from "@/lib/requestOrigin";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
@@ -9,7 +10,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/session";
  * addition rather than silently bundled in.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  const response = NextResponse.redirect(new URL("/login", request.url));
+  const response = NextResponse.redirect(new URL("/login", getRequestOrigin(request)));
   response.cookies.delete(SESSION_COOKIE_NAME);
   return response;
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { AuthApiError, verifyMagicLinkToken } from "@/lib/authApi";
+import { getRequestOrigin } from "@/lib/requestOrigin";
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request, reason);
   }
 
-  const response = NextResponse.redirect(new URL("/app", request.url));
+  const response = NextResponse.redirect(new URL("/app", getRequestOrigin(request)));
   response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,
     secure: true,
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 function redirectToLogin(request: NextRequest, reason: string): NextResponse {
-  const url = new URL("/login", request.url);
+  const url = new URL("/login", getRequestOrigin(request));
   url.searchParams.set("error", reason);
   return NextResponse.redirect(url);
 }
