@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
 
+import { Icon } from "@/app/admin/icons";
 import type { LeadDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { canTransitionTo, explainWhyNotSendable } from "@/lib/leadTransitions";
 import { MAX_SENDS_PER_DAY } from "@/lib/limits";
+import { STATUS_BADGE } from "@/lib/statusStyle";
 import { GLASS_CARD } from "@/lib/theme";
 
 const CHANNELS = ["facebook", "email", "contact_form"] as const;
@@ -161,36 +163,49 @@ export function LeadDetailClient({
 
   return (
     <div className="mt-4 space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
-          {lead.place.name ?? lead.place.place_id}
-        </h1>
-        <p className="text-sm text-zinc-500">
-          Status: <span className="font-medium">{lead.status.replaceAll("_", " ")}</span>
-          {lead.channel && <> · Channel: {lead.channel}</>}
-        </p>
+      <div className={`${GLASS_CARD} p-4`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+            {lead.place.name ?? lead.place.place_id}
+          </h1>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[lead.status]}`}
+          >
+            {lead.status.replaceAll("_", " ")}
+          </span>
+          {lead.channel && (
+            <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600">
+              via {lead.channel}
+            </span>
+          )}
+        </div>
+
         {(lead.place.rating != null || lead.place.address || mapsHref) && (
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-zinc-600">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {lead.place.rating != null && (
-              <span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-50/80 px-2.5 py-1 text-xs font-medium text-amber-700">
                 ★ {lead.place.rating.toFixed(1)}
-                {lead.place.reviews_count != null && ` (${lead.place.reviews_count.toLocaleString()} reviews)`}
+                {lead.place.reviews_count != null &&
+                  ` · ${lead.place.reviews_count.toLocaleString()} reviews`}
               </span>
             )}
-            {lead.place.rating != null && lead.place.address && <span>·</span>}
-            {lead.place.address && <span>{lead.place.address}</span>}
-            {mapsHref && (lead.place.rating != null || lead.place.address) && <span>·</span>}
+            {lead.place.address && (
+              <span className="inline-flex items-center gap-1 text-sm text-zinc-600">
+                <Icon name="map-pin" className="h-4 w-4 shrink-0 text-zinc-400" />
+                {lead.place.address}
+              </span>
+            )}
             {mapsHref && (
               <a
                 href={mapsHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-zinc-900 underline hover:text-zinc-700"
+                className="inline-flex items-center gap-1 rounded-lg border border-zinc-300/80 bg-white/60 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-white"
               >
                 Open in Google Maps
               </a>
             )}
-          </p>
+          </div>
         )}
       </div>
 
@@ -222,17 +237,6 @@ export function LeadDetailClient({
           </label>
         </div>
       )}
-
-      <section>
-        <SectionLabel>Review (read-only)</SectionLabel>
-        <div className={`mt-2 ${GLASS_CARD} p-4 text-sm`}>
-          <p className="text-zinc-500">
-            {lead.review.rating ?? "—"}★ · {formatDate(lead.review.review_date)}
-            {lead.review.author && <> · {lead.review.author}</>}
-          </p>
-          <p className="mt-2 whitespace-pre-wrap text-zinc-900">{lead.review.text}</p>
-        </div>
-      </section>
 
       <section>
         <SectionLabel>Contact</SectionLabel>
@@ -285,6 +289,17 @@ export function LeadDetailClient({
         )}
       </section>
 
+      <section>
+        <SectionLabel>Review (read-only)</SectionLabel>
+        <div className={`mt-2 ${GLASS_CARD} p-4 text-sm`}>
+          <p className="text-zinc-500">
+            {lead.review.rating ?? "—"}★ · {formatDate(lead.review.review_date)}
+            {lead.review.author && <> · {lead.review.author}</>}
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-zinc-900">{lead.review.text}</p>
+        </div>
+      </section>
+
       <EditableField
         label="Generated response"
         value={generatedResponse}
@@ -293,22 +308,22 @@ export function LeadDetailClient({
         saving={busy === "generated_response"}
       />
 
-      <section>
-        <EditableField
-          label="Outreach message"
-          value={outreachMessage}
-          onChange={setOutreachMessage}
-          onSave={() => saveField("outreach_message", outreachMessage)}
-          saving={busy === "outreach_message"}
-        />
-        <button
-          type="button"
-          onClick={copyMessage}
-          className="mt-2 rounded-lg border border-zinc-300/80 bg-white/70 px-3 py-1.5 text-sm backdrop-blur hover:bg-white"
-        >
-          Copy message
-        </button>
-      </section>
+      <EditableField
+        label="Outreach message"
+        value={outreachMessage}
+        onChange={setOutreachMessage}
+        onSave={() => saveField("outreach_message", outreachMessage)}
+        saving={busy === "outreach_message"}
+        extraActions={
+          <button
+            type="button"
+            onClick={copyMessage}
+            className="rounded-lg border border-zinc-300/80 bg-white/70 px-3 py-1.5 text-sm backdrop-blur hover:bg-white"
+          >
+            Copy message
+          </button>
+        }
+      />
 
       <section>
         <SectionLabel>
@@ -326,26 +341,26 @@ export function LeadDetailClient({
         />
       </section>
 
-      <section className="flex flex-wrap items-end gap-4 border-t border-zinc-200/70 pt-6">
-        <div>
-          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Channel
-          </label>
-          <select
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-            className="mt-1 rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
-          >
-            <option value="">Select channel…</option>
-            {CHANNELS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
+      <section className="border-t border-zinc-200/70 pt-6">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Channel
+            </label>
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              className="mt-1 rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
+            >
+              <option value="">Select channel…</option>
+              {CHANNELS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
           <button
             type="button"
             onClick={markSent}
@@ -359,18 +374,18 @@ export function LeadDetailClient({
                 ? "Marking sent…"
                 : "Mark sent"}
           </button>
-          {sendBlockedReason && <p className="mt-1 max-w-xs text-xs text-red-600">{sendBlockedReason}</p>}
-        </div>
 
-        {canSkip && !showSkipConfirm && (
-          <button
-            type="button"
-            onClick={() => setShowSkipConfirm(true)}
-            className="rounded-lg border border-red-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-red-700 backdrop-blur hover:bg-red-50"
-          >
-            Skip → dead
-          </button>
-        )}
+          {canSkip && !showSkipConfirm && (
+            <button
+              type="button"
+              onClick={() => setShowSkipConfirm(true)}
+              className="rounded-lg border border-red-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-red-700 backdrop-blur hover:bg-red-50"
+            >
+              Skip → dead
+            </button>
+          )}
+        </div>
+        {sendBlockedReason && <p className="mt-2 text-xs text-red-600">{sendBlockedReason}</p>}
       </section>
 
       {showSkipConfirm && (
@@ -490,12 +505,14 @@ function EditableField({
   onChange,
   onSave,
   saving,
+  extraActions,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   onSave: () => void;
   saving: boolean;
+  extraActions?: ReactNode;
 }) {
   return (
     <section>
@@ -506,14 +523,17 @@ function EditableField({
         rows={6}
         className="mt-2 w-full rounded-lg border border-zinc-300/80 bg-white/70 p-3 text-sm backdrop-blur"
       />
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={saving}
-        className="mt-2 rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm disabled:opacity-40"
-      >
-        {saving ? "Saving…" : "Save"}
-      </button>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm disabled:opacity-40"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        {extraActions}
+      </div>
     </section>
   );
 }

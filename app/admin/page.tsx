@@ -1,4 +1,5 @@
 import { getStats, type StatsResponse } from "@/lib/api";
+import { STATUS_BADGE } from "@/lib/statusStyle";
 import { GLASS_CARD } from "@/lib/theme";
 
 import { Icon, type IconName } from "./icons";
@@ -6,19 +7,20 @@ import { Icon, type IconName } from "./icons";
 // Stats change every time a lead is touched — never serve a cached /admin render.
 export const dynamic = "force-dynamic";
 
-// LOGIC.md §3 lifecycle order, so the cards read left-to-right as a pipeline. Colors/icons are
-// purely decorative (UAT-4, ticket 3.4-UAT) — same status set and counts as before.
-const STATUS_STYLE: Record<string, { badge: string; icon: IconName }> = {
-  new: { badge: "bg-slate-100 text-slate-600", icon: "circle" },
-  response_generated: { badge: "bg-blue-100 text-blue-600", icon: "sparkle" },
-  enriched: { badge: "bg-purple-100 text-purple-600", icon: "map-pin" },
-  queued: { badge: "bg-amber-100 text-amber-600", icon: "clock" },
-  sent: { badge: "bg-indigo-100 text-indigo-600", icon: "paper-plane" },
-  replied: { badge: "bg-cyan-100 text-cyan-600", icon: "chat" },
-  converted: { badge: "bg-emerald-100 text-emerald-600", icon: "check" },
-  dead: { badge: "bg-rose-100 text-rose-600", icon: "x" },
+// LOGIC.md §3 lifecycle order, so the cards read left-to-right as a pipeline. Icons are purely
+// decorative (UAT-4, ticket 3.4-UAT); colors come from the shared STATUS_BADGE map so the
+// dashboard and the lead detail status pill can never drift apart (UI polish round 2).
+const STATUS_ICON: Record<keyof typeof STATUS_BADGE, IconName> = {
+  new: "circle",
+  response_generated: "sparkle",
+  enriched: "map-pin",
+  queued: "clock",
+  sent: "paper-plane",
+  replied: "chat",
+  converted: "check",
+  dead: "x",
 };
-const STATUS_ORDER = Object.keys(STATUS_STYLE) as (keyof typeof STATUS_STYLE)[];
+const STATUS_ORDER = Object.keys(STATUS_BADGE) as (keyof typeof STATUS_BADGE)[];
 
 export default async function AdminPage() {
   let stats: StatsResponse | null = null;
@@ -51,7 +53,8 @@ export default async function AdminPage() {
                   key={status}
                   label={status.replaceAll("_", " ")}
                   value={stats.by_status[status] ?? 0}
-                  {...STATUS_STYLE[status]}
+                  badge={STATUS_BADGE[status]}
+                  icon={STATUS_ICON[status]}
                 />
               ))}
             </div>
@@ -110,16 +113,14 @@ function StatCard({
 }) {
   return (
     <div className={`${GLASS_CARD} p-4`}>
-      <div className="flex items-center gap-3">
+      <p className="text-xs font-medium uppercase leading-tight tracking-wide text-zinc-500">
+        {label}
+      </p>
+      <div className="mt-1.5 flex items-center gap-3">
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${badge}`}>
           <Icon name={icon} className="h-5 w-5" />
         </span>
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase leading-tight tracking-wide text-zinc-500">
-            {label}
-          </p>
-          <p className="mt-0.5 text-2xl font-semibold text-zinc-900">{value}</p>
-        </div>
+        <p className="text-2xl font-semibold text-zinc-900">{value}</p>
       </div>
     </div>
   );
