@@ -1,14 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
+
 /**
- * HTTP Basic Auth gate for /admin/* (SPRINT_03.md ticket 3.2).
+ * Two independent gates in one middleware (SPRINT_03.md ticket 3.2 + SPRINT_04.md ticket 4.2):
  *
- * ADMIN_USER / ADMIN_PASS live only in this app's Netlify env — a separate credential from the
- * backend's ADMIN_API_KEY, which never reaches the browser at all (see lib/api.ts). This just
- * keeps random visitors out of the dashboard UI; the backend's own X-Admin-Key auth is the real
- * boundary protecting the lead data.
+ * - /admin/*: HTTP Basic Auth (ADMIN_USER/ADMIN_PASS) — unchanged from ticket 3.2. Keeps random
+ *   visitors out of the internal dashboard UI; the backend's own X-Admin-Key auth is the real
+ *   boundary protecting the lead data.
+ * - /app/*: customer session cookie (a JWT signed by the backend on magic-link verify) —
+ *   entirely different audience and mechanism, so it's a separate branch, not a variant of the
+ *   admin check. Missing/invalid/expired session -> redirect to /login, not a 401 (a customer
+ *   hitting /app is a normal navigation, not an API caller).
  */
-export function middleware(request: NextRequest): NextResponse {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    return checkAdminBasicAuth(request);
+  }
+  return checkCustomerSession(request);
+}
+
+function checkAdminBasicAuth(request: NextRequest): NextResponse {
   const expectedUser = process.env.ADMIN_USER;
   const expectedPass = process.env.ADMIN_PASS;
 
@@ -24,6 +36,18 @@ export function middleware(request: NextRequest): NextResponse {
     !timingSafeEqual(credentials.pass, expectedPass)
   ) {
     return unauthorized();
+  }
+
+  return NextResponse.next();
+}
+
+async function checkCustomerSession(request: NextRequest): Promise<NextResponse> {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const session = token ? await verifySessionToken(token) : null;
+
+  if (!session) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
@@ -68,5 +92,5 @@ function unauthorized(): NextResponse {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: ["/admin", "/admin/:path*", "/app", "/app/:path*"],
 };

@@ -18,3 +18,18 @@ export const GLASS_CARD =
 export const GLASS_NAV = "border-b border-white/50 bg-white/60 backdrop-blur-xl";
 
 export const PAGE_BACKGROUND = "min-h-screen bg-gradient-to-br from-indigo-50 via-white to-sky-50";
+
+/**
+ * Dark frosted-glass tokens for the customer-facing pages (SPRINT_04.md ticket 4.2:
+ * /signup, /login, /app). Character-for-character the same values as
+ * reviewguide-marketing/lib/theme.ts's DARK_GLASS_CARD/SECTION* tokens — customers flow
+ * landing -> signup -> app, and the ticket is explicit that there should be no visible theme
+ * seam between the marketing site and these pages. /admin (internal, different audience) is
+ * intentionally untouched and stays on the light GLASS_CARD/PAGE_BACKGROUND above.
+ */
+export const DARK_PAGE_BACKGROUND = "min-h-screen bg-black text-white";
+
+export const DARK_GLASS_CARD =
+  "rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-lg shadow-black/40";
+
+export const DARK_GLASS_NAV = "border-b border-white/10 bg-black/60 backdrop-blur-xl";
