@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { DARK_GLASS_CARD } from "@/lib/theme";
 
-import { VerifySubmitButton } from "./VerifySubmitButton";
+import { VerifyForm } from "./VerifyForm";
 
 export const metadata: Metadata = { title: "Dokończ logowanie — ReviewGuide" };
 
@@ -15,9 +15,9 @@ export const metadata: Metadata = { title: "Dokończ logowanie — ReviewGuide" 
  * practice do) can trigger. This is what makes a plain GET here safe to hit any number of times,
  * including by a mailbox provider's automated link-prescanning.
  *
- * The submit button (VerifySubmitButton) is a small client component purely for a disabled/
- * pending UI state (ticket 4.5 double-submit fix) — it makes no network call of its own; the
- * form's own POST navigation to /api/auth/complete-verify is unchanged.
+ * The form itself (VerifyForm) is a client component purely for double-submit prevention (ticket
+ * 4.5) — it makes no network call of its own; the plain POST navigation to
+ * /api/auth/complete-verify is unchanged.
  */
 export default async function VerifyPage({
   searchParams,
@@ -38,10 +38,7 @@ export default async function VerifyPage({
           Ze względów bezpieczeństwa link z e-maila nie loguje Cię automatycznie — potwierdź
           poniżej.
         </p>
-        <form action="/api/auth/complete-verify" method="POST" className="mt-6">
-          <input type="hidden" name="token" value={token} />
-          <VerifySubmitButton />
-        </form>
+        <VerifyForm token={token} />
       </div>
     </div>
   );
