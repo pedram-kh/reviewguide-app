@@ -5,15 +5,18 @@ import { getRequestOrigin, withNetlifyRedirectSafety } from "@/lib/requestOrigin
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
- * The magic link itself points here: `{APP_URL}/auth/verify?token=...` (SPRINT_04.md ticket
- * 4.2). Exchanges the one-time token for a session by calling the backend, then sets the
- * session cookie and redirects — the token in the URL is spent the moment this runs (the
- * backend marks it used_at on the very first successful verify), so refreshing this URL a
- * second time correctly fails rather than silently logging in again.
+ * The actual token-consuming step (SPRINT_04.md ticket 4.2b). Split out of `/auth/verify` (now a
+ * GET-only interstitial page, see app/(customer)/auth/verify/page.tsx) after a live real-Postmark
+ * test showed a mailbox provider's automated link-prescanning/safe-links feature was clicking the
+ * emailed link — and consuming its single-use token — before the human recipient ever saw the
+ * email. A human must now submit the interstitial's form (a real POST) for the token to be
+ * consumed; an automated GET can no longer burn it.
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const token = request.nextUrl.searchParams.get("token");
-  if (!token) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const formData = await request.formData();
+  const token = formData.get("token");
+
+  if (typeof token !== "string" || !token) {
     return redirectToLogin(request, "missing_token");
   }
 
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const appUrl = withNetlifyRedirectSafety(new URL("/app", getRequestOrigin(request)));
-  const response = NextResponse.redirect(appUrl);
+  const response = NextResponse.redirect(appUrl, { status: 303 });
   response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,
     secure: true,
@@ -41,5 +44,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 function redirectToLogin(request: NextRequest, reason: string): NextResponse {
   const url = new URL("/login", getRequestOrigin(request));
   url.searchParams.set("error", reason);
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, { status: 303 });
 }
