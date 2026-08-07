@@ -17,6 +17,17 @@ const STATUS_LABELS: Record<string, string> = {
   paused: "wstrzymana",
 };
 
+// A real Stripe subscription already exists for these statuses — matches the backend's own
+// _ALREADY_SUBSCRIBED_STATUSES guard in app/routers/billing.py. Deliberately keyed off
+// subscription_status itself, not has_subscription_ever_started (stripe_customer_id is set the
+// moment a Checkout Session is first created, even if that checkout was abandoned/cancelled and
+// no real subscription ever existed — that field answers "has a Stripe Customer record", not
+// "has a subscription right now"). Found live 2026-08-08 (Stakeholder walkthrough): the old
+// has_subscription_ever_started condition let a stale /app page still show "Rozpocznij okres
+// próbny" after a subscription was already active, which is what produced the duplicate
+// checkout in the first place.
+const ALREADY_SUBSCRIBED_STATUSES = new Set(["trialing", "active"]);
+
 /**
  * The logged-in landing page (SPRINT_04.md ticket 4.2 + ticket 4.3's status card/buttons).
  * middleware.ts already redirects unauthenticated requests to /login before this ever runs, but
@@ -40,7 +51,7 @@ export default async function AppPage({
   const { error, checkout } = await searchParams;
   const status = await getBillingStatus(token).catch(() => null);
   const subscriptionStatus = status?.subscription_status ?? "none";
-  const hasStartedSubscription = status?.has_subscription_ever_started ?? false;
+  const isAlreadySubscribed = ALREADY_SUBSCRIBED_STATUSES.has(subscriptionStatus);
 
   return (
     <div className="flex flex-1 flex-col items-center px-6 py-16">
@@ -60,14 +71,19 @@ export default async function AppPage({
             Dziękujemy! Okres próbny wkrótce się pojawi (chwilę zajmuje przetworzenie przez Stripe).
           </p>
         )}
-        {error && (
+        {error === "already_subscribed" && (
+          <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+            Masz już aktywną subskrypcję — zarządzaj nią poniżej, w portalu klienta.
+          </p>
+        )}
+        {error && error !== "already_subscribed" && (
           <p className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
             Coś poszło nie tak z płatnościami. Spróbuj ponownie za chwilę.
           </p>
         )}
 
         <div className="mt-6 flex flex-col gap-3">
-          {!hasStartedSubscription ? (
+          {!isAlreadySubscribed ? (
             <form action="/api/billing/checkout" method="post">
               <button
                 type="submit"

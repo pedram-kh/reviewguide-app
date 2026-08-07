@@ -4,7 +4,8 @@ import { getRequestOrigin, withNetlifyRedirectSafety } from "@/lib/requestOrigin
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 /**
- * Two independent gates in one middleware (SPRINT_03.md ticket 3.2 + SPRINT_04.md ticket 4.2):
+ * Three gates in one middleware (SPRINT_03.md ticket 3.2 + SPRINT_04.md ticket 4.2 + SPRINT_05.md
+ * ticket 5.3):
  *
  * - /admin/*: HTTP Basic Auth (ADMIN_USER/ADMIN_PASS) — unchanged from ticket 3.2. Keeps random
  *   visitors out of the internal dashboard UI; the backend's own X-Admin-Key auth is the real
@@ -13,12 +14,29 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
  *   entirely different audience and mechanism, so it's a separate branch, not a variant of the
  *   admin check. Missing/invalid/expired session -> redirect to /login, not a 401 (a customer
  *   hitting /app is a normal navigation, not an API caller).
+ * - /: found live 2026-08-08 (Stakeholder walkthrough) — served a bare "internal dashboard, see
+ *   /admin" placeholder that predates this app having a customer-facing audience at all.
+ *   Redirects straight to /app (valid session) or /login (no/expired session) — the same session
+ *   check as /app's own gate, just routed to a different destination, so "/" is never a real
+ *   landing page a customer can get stuck on.
  */
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (request.nextUrl.pathname.startsWith("/admin")) {
     return checkAdminBasicAuth(request);
   }
+  if (request.nextUrl.pathname === "/") {
+    return redirectRoot(request);
+  }
   return checkCustomerSession(request);
+}
+
+async function redirectRoot(request: NextRequest): Promise<NextResponse> {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const session = token ? await verifySessionToken(token) : null;
+  const destination = session ? "/app" : "/login";
+  return NextResponse.redirect(
+    withNetlifyRedirectSafety(new URL(destination, getRequestOrigin(request)))
+  );
 }
 
 function checkAdminBasicAuth(request: NextRequest): NextResponse {
@@ -93,5 +111,5 @@ function unauthorized(): NextResponse {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/app", "/app/:path*"],
+  matcher: ["/", "/admin", "/admin/:path*", "/app", "/app/:path*"],
 };

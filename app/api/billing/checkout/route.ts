@@ -20,7 +20,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { checkout_url: checkoutUrl } = await createCheckoutSession(sessionToken);
     return NextResponse.redirect(checkoutUrl, { status: 303 });
   } catch (error) {
-    const reason = error instanceof BillingApiError ? "billing_error" : "error";
+    // 409 = backend's _ALREADY_SUBSCRIBED_STATUSES guard (found live 2026-08-08) — a distinct,
+    // friendlier message than the generic billing_error catch-all, since it's an expected state
+    // (stale page / double click) rather than an actual failure.
+    let reason = "error";
+    if (error instanceof BillingApiError) {
+      reason = error.status === 409 ? "already_subscribed" : "billing_error";
+    }
     const appUrl = new URL("/app", getRequestOrigin(request));
     appUrl.searchParams.set("error", reason);
     return NextResponse.redirect(appUrl, { status: 303 });
