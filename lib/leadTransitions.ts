@@ -32,3 +32,19 @@ export function canTransitionTo(from: LeadStatus, to: LeadStatus): boolean {
 export function isHealthGuardedStatus(status: LeadStatus): boolean {
   return status === "queued" || status === "sent";
 }
+
+// LOGIC.md §3 path to `sent`: new -> response_generated -> enriched -> queued -> sent. UAT-1
+// (ticket 3.4-UAT): "Mark sent disabled" is not self-explanatory on its own — spell out exactly
+// which earlier steps are still missing, or that the lead is already past this point.
+const STEPS_STILL_MISSING_BEFORE_SENT: Partial<Record<LeadStatus, string>> = {
+  new: "still needs a response generated, enrichment, and queueing",
+  response_generated: "still needs enrichment and queueing",
+  enriched: "still needs to be queued",
+};
+
+export function explainWhyNotSendable(status: LeadStatus): string {
+  const readableStatus = status.replaceAll("_", " ");
+  const missing = STEPS_STILL_MISSING_BEFORE_SENT[status];
+  if (missing) return `Lead ${missing} before it can be marked sent (currently: ${readableStatus}).`;
+  return `Lead is already '${readableStatus}' — it can't be marked sent from here.`;
+}

@@ -5,8 +5,9 @@ import { type ReactNode, useRef, useState } from "react";
 
 import type { LeadDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { canTransitionTo } from "@/lib/leadTransitions";
+import { canTransitionTo, explainWhyNotSendable } from "@/lib/leadTransitions";
 import { MAX_SENDS_PER_DAY } from "@/lib/limits";
+import { GLASS_CARD } from "@/lib/theme";
 
 const CHANNELS = ["facebook", "email", "contact_form"] as const;
 const NOTES_AUTOSAVE_DELAY_MS = 800;
@@ -129,29 +130,76 @@ export function LeadDetailClient({
     }
   }
 
+  // UAT-3 (3.4-UAT): fall back to a coordinates-based maps URL when google_maps_url is null
+  // (e.g. a place discovered before this ticket that hasn't been re-polled yet).
+  const mapsHref =
+    lead.place.google_maps_url ??
+    (lead.place.lat != null && lead.place.lng != null
+      ? `https://www.google.com/maps?q=${lead.place.lat},${lead.place.lng}`
+      : null);
+
   const canMarkSent = canTransitionTo(lead.status, "sent");
   const canSkip = canTransitionTo(lead.status, "dead");
   const healthBlocksSend = lead.health_flag && !healthReviewed;
   const dailyCapReached = sentToday >= MAX_SENDS_PER_DAY;
+  const noChannelSelected = !channel;
+
+  // UAT-1 (3.4-UAT): every disabled reason must be visible, not just a hover title — checked
+  // in this order because an illegal transition or the daily cap make every other reason moot
+  // (picking a channel or ticking the health box wouldn't unblock anything either way).
+  const sendBlockedReason = !canMarkSent
+    ? explainWhyNotSendable(lead.status)
+    : dailyCapReached
+      ? `Daily send cap reached (${MAX_SENDS_PER_DAY}/${MAX_SENDS_PER_DAY} sent today, LOGIC.md §6) — try again tomorrow.`
+      : noChannelSelected
+        ? "Select a channel below before marking sent."
+        : healthBlocksSend
+          ? "Tick \u201cI reviewed this response\u201d above before marking sent (health-flagged lead)."
+          : null;
+  const sendDisabled =
+    !canMarkSent || dailyCapReached || noChannelSelected || healthBlocksSend || busy === "mark_sent";
 
   return (
     <div className="mt-4 space-y-8">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
           {lead.place.name ?? lead.place.place_id}
         </h1>
         <p className="text-sm text-zinc-500">
           Status: <span className="font-medium">{lead.status.replaceAll("_", " ")}</span>
           {lead.channel && <> · Channel: {lead.channel}</>}
         </p>
+        {(lead.place.rating != null || lead.place.address || mapsHref) && (
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-zinc-600">
+            {lead.place.rating != null && (
+              <span>
+                ★ {lead.place.rating.toFixed(1)}
+                {lead.place.reviews_count != null && ` (${lead.place.reviews_count.toLocaleString()} reviews)`}
+              </span>
+            )}
+            {lead.place.rating != null && lead.place.address && <span>·</span>}
+            {lead.place.address && <span>{lead.place.address}</span>}
+            {mapsHref && (lead.place.rating != null || lead.place.address) && <span>·</span>}
+            {mapsHref && (
+              <a
+                href={mapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-zinc-900 underline hover:text-zinc-700"
+              >
+                Open in Google Maps
+              </a>
+            )}
+          </p>
+        )}
       </div>
 
       {message && (
         <div
           className={
             message.kind === "success"
-              ? "rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700"
-              : "rounded-md bg-red-50 px-4 py-2 text-sm text-red-700"
+              ? "rounded-2xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-2 text-sm text-emerald-700 backdrop-blur"
+              : "rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2 text-sm text-red-700 backdrop-blur"
           }
         >
           {message.text}
@@ -159,7 +207,7 @@ export function LeadDetailClient({
       )}
 
       {lead.health_flag && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+        <div className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 backdrop-blur">
           <p className="text-sm font-medium text-amber-900">⚠ Health/safety flagged review</p>
           <p className="mt-1 text-sm text-amber-800">
             Review the generated response carefully before sending — never auto-send (LOGIC.md §2).
@@ -177,7 +225,7 @@ export function LeadDetailClient({
 
       <section>
         <SectionLabel>Review (read-only)</SectionLabel>
-        <div className="mt-2 rounded-lg border border-zinc-200 bg-white p-4 text-sm">
+        <div className={`mt-2 ${GLASS_CARD} p-4 text-sm`}>
           <p className="text-zinc-500">
             {lead.review.rating ?? "—"}★ · {formatDate(lead.review.review_date)}
             {lead.review.author && <> · {lead.review.author}</>}
@@ -188,15 +236,53 @@ export function LeadDetailClient({
 
       <section>
         <SectionLabel>Contact</SectionLabel>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <ContactButton href={lead.place.fb_url ?? undefined} label="Facebook" />
-          <ContactButton
-            href={lead.place.email ? `mailto:${lead.place.email}` : undefined}
-            label="Email"
-          />
-          <ContactButton href={lead.place.phone ? `tel:${lead.place.phone}` : undefined} label="Call" />
-          <ContactButton href={lead.place.website ?? undefined} label="Website" />
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {lead.place.fb_url && (
+            <ContactCard
+              label="Facebook"
+              value={facebookHandle(lead.place.fb_url)}
+              copyValue={facebookHandle(lead.place.fb_url)}
+              href={lead.place.fb_url}
+              external
+              actionLabel="Open"
+              onCopied={() => flash("success", "Copied to clipboard.")}
+            />
+          )}
+          {lead.place.email && (
+            <ContactCard
+              label="Email"
+              value={lead.place.email}
+              copyValue={lead.place.email}
+              href={`mailto:${lead.place.email}`}
+              actionLabel="Email"
+              onCopied={() => flash("success", "Copied to clipboard.")}
+            />
+          )}
+          {lead.place.phone && (
+            <ContactCard
+              label="Phone"
+              value={lead.place.phone}
+              copyValue={lead.place.phone}
+              href={`tel:${lead.place.phone.replace(/[^+\d]/g, "")}`}
+              actionLabel="Call"
+              onCopied={() => flash("success", "Copied to clipboard.")}
+            />
+          )}
+          {lead.place.website && (
+            <ContactCard
+              label="Website"
+              value={stripProtocol(lead.place.website)}
+              copyValue={lead.place.website}
+              href={lead.place.website}
+              external
+              actionLabel="Visit"
+              onCopied={() => flash("success", "Copied to clipboard.")}
+            />
+          )}
         </div>
+        {!lead.place.fb_url && !lead.place.email && !lead.place.phone && !lead.place.website && (
+          <p className="mt-2 text-sm text-zinc-400">No contact channels available for this place.</p>
+        )}
       </section>
 
       <EditableField
@@ -218,7 +304,7 @@ export function LeadDetailClient({
         <button
           type="button"
           onClick={copyMessage}
-          className="mt-2 rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          className="mt-2 rounded-lg border border-zinc-300/80 bg-white/70 px-3 py-1.5 text-sm backdrop-blur hover:bg-white"
         >
           Copy message
         </button>
@@ -235,12 +321,12 @@ export function LeadDetailClient({
           value={notes}
           onChange={(e) => handleNotesChange(e.target.value)}
           rows={3}
-          className="mt-2 w-full rounded-lg border border-zinc-300 p-3 text-sm"
+          className="mt-2 w-full rounded-lg border border-zinc-300/80 bg-white/70 p-3 text-sm backdrop-blur"
           placeholder="Free-text notes (autosaves)"
         />
       </section>
 
-      <section className="flex flex-wrap items-end gap-4 border-t border-zinc-200 pt-6">
+      <section className="flex flex-wrap items-end gap-4 border-t border-zinc-200/70 pt-6">
         <div>
           <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500">
             Channel
@@ -248,7 +334,7 @@ export function LeadDetailClient({
           <select
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
-            className="mt-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+            className="mt-1 rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
           >
             <option value="">Select channel…</option>
             {CHANNELS.map((c) => (
@@ -259,29 +345,28 @@ export function LeadDetailClient({
           </select>
         </div>
 
-        <button
-          type="button"
-          onClick={markSent}
-          disabled={!canMarkSent || healthBlocksSend || dailyCapReached || busy === "mark_sent"}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-          title={
-            !canMarkSent
-              ? `Cannot mark 'sent' from status '${lead.status}' (LOGIC.md §3)`
-              : dailyCapReached
-                ? `Daily send cap (${MAX_SENDS_PER_DAY}/day, LOGIC.md §6) already reached today`
-                : healthBlocksSend
-                  ? "Confirm you reviewed the health-flagged response first"
-                  : undefined
-          }
-        >
-          {dailyCapReached ? `Daily cap reached (${MAX_SENDS_PER_DAY}/${MAX_SENDS_PER_DAY})` : busy === "mark_sent" ? "Marking sent…" : "Mark sent"}
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={markSent}
+            disabled={sendDisabled}
+            title={sendBlockedReason ?? undefined}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:opacity-40"
+          >
+            {dailyCapReached
+              ? `Daily cap reached (${MAX_SENDS_PER_DAY}/${MAX_SENDS_PER_DAY})`
+              : busy === "mark_sent"
+                ? "Marking sent…"
+                : "Mark sent"}
+          </button>
+          {sendBlockedReason && <p className="mt-1 max-w-xs text-xs text-red-600">{sendBlockedReason}</p>}
+        </div>
 
         {canSkip && !showSkipConfirm && (
           <button
             type="button"
             onClick={() => setShowSkipConfirm(true)}
-            className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+            className="rounded-lg border border-red-300/80 bg-white/70 px-4 py-2 text-sm font-medium text-red-700 backdrop-blur hover:bg-red-50"
           >
             Skip → dead
           </button>
@@ -289,7 +374,7 @@ export function LeadDetailClient({
       </section>
 
       {showSkipConfirm && (
-        <section className="rounded-lg border border-red-300 bg-red-50 p-4">
+        <section className="rounded-2xl border border-red-300/70 bg-red-50/80 p-4 backdrop-blur">
           <label className="block text-sm font-medium text-red-900">
             Note required — why are you abandoning this lead? (LOGIC.md §3)
           </label>
@@ -297,7 +382,7 @@ export function LeadDetailClient({
             value={skipNote}
             onChange={(e) => setSkipNote(e.target.value)}
             rows={2}
-            className="mt-2 w-full rounded-md border border-red-300 p-2 text-sm"
+            className="mt-2 w-full rounded-lg border border-red-300/80 bg-white/70 p-2 text-sm"
             placeholder="e.g. business closed, wrong fit, duplicate lead"
           />
           <div className="mt-3 flex gap-2">
@@ -305,14 +390,14 @@ export function LeadDetailClient({
               type="button"
               onClick={confirmSkip}
               disabled={busy === "skip"}
-              className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             >
               {busy === "skip" ? "Skipping…" : "Confirm skip → dead"}
             </button>
             <button
               type="button"
               onClick={() => setShowSkipConfirm(false)}
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm"
+              className="rounded-lg border border-zinc-300/80 bg-white/70 px-4 py-2 text-sm"
             >
               Cancel
             </button>
@@ -329,23 +414,73 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function ContactButton({ href, label }: { href?: string; label: string }) {
-  if (!href) {
-    return (
-      <span className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-300">
-        {label}
-      </span>
-    );
+function stripProtocol(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+// UAT-2 (3.4-UAT): show the FB page name/slug rather than the raw URL as the card's headline value.
+function facebookHandle(url: string): string {
+  try {
+    const path = new URL(url).pathname.replace(/^\/+|\/+$/g, "");
+    return path || stripProtocol(url);
+  } catch {
+    return stripProtocol(url);
   }
+}
+
+function ContactCard({
+  label,
+  value,
+  copyValue,
+  href,
+  actionLabel,
+  external = false,
+  onCopied,
+}: {
+  label: string;
+  value: string;
+  copyValue: string;
+  href: string;
+  actionLabel: string;
+  external?: boolean;
+  onCopied: () => void;
+}) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(copyValue);
+      onCopied();
+    } catch {
+      // Clipboard permission denial is rare and non-blocking here — the value is still visible
+      // and selectable on the card, so silently skipping the toast is fine.
+    }
+  }
+
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
-    >
-      {label}
-    </a>
+    <div className={`${GLASS_CARD} p-3 text-sm`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</span>
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={`Copy ${label.toLowerCase()}`}
+          className="rounded p-1 text-zinc-400 hover:bg-white hover:text-zinc-700"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path d="M7 2a2 2 0 0 0-2 2v1H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7Zm0 2h8v9h-1V7a2 2 0 0 0-2-2H7V4ZM4 7h8v9H4V7Z" />
+          </svg>
+        </button>
+      </div>
+      <p className="mt-1 truncate font-medium text-zinc-900" title={value}>
+        {value}
+      </p>
+      <a
+        href={href}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className="mt-2 inline-block rounded-lg border border-zinc-300/80 bg-white/60 px-3 py-1 text-xs font-medium hover:bg-white"
+      >
+        {actionLabel}
+      </a>
+    </div>
   );
 }
 
@@ -369,13 +504,13 @@ function EditableField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={6}
-        className="mt-2 w-full rounded-lg border border-zinc-300 p-3 text-sm"
+        className="mt-2 w-full rounded-lg border border-zinc-300/80 bg-white/70 p-3 text-sm backdrop-blur"
       />
       <button
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="mt-2 rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+        className="mt-2 rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm disabled:opacity-40"
       >
         {saving ? "Saving…" : "Save"}
       </button>

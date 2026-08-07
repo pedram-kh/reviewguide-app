@@ -108,6 +108,12 @@ export interface PlaceInfo {
   website: string | null;
   fb_url: string | null;
   email: string | null;
+  // UAT-3 (3.4-UAT): place-level enrichment for the lead detail header.
+  rating: number | null;
+  reviews_count: number | null;
+  lat: number | null;
+  lng: number | null;
+  google_maps_url: string | null;
 }
 
 export interface ReviewInfo {

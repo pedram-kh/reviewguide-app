@@ -1,4 +1,5 @@
 import { getLead, listLeads, type LeadListItem } from "@/lib/api";
+import { GLASS_CARD } from "@/lib/theme";
 
 import { ReplyRow, type ReplyRowData } from "./ReplyRow";
 
@@ -39,19 +40,19 @@ export default async function RepliesPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-semibold text-zinc-900">Replies</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Replies</h1>
       <p className="mt-1 text-sm text-zinc-500">
         Leads that have been sent and are awaiting or have received a reply, newest send first.
       </p>
 
       {error ? (
-        <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700 backdrop-blur">
           Couldn&apos;t load replies: {error}
         </div>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-sm text-zinc-500">Nothing sent yet.</p>
       ) : (
-        <div className="mt-6 divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
+        <div className={`mt-6 divide-y divide-white/50 ${GLASS_CARD}`}>
           {rows.map((row) => (
             <ReplyRow key={row.leadId} {...row} />
           ))}

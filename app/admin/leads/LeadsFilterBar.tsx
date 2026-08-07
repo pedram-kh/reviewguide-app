@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import type { LeadSort, LeadStatus } from "@/lib/api";
+import { GLASS_CARD } from "@/lib/theme";
 
 const STATUS_OPTIONS: LeadStatus[] = [
   "new",
@@ -51,12 +52,12 @@ export function LeadsFilterBar() {
   );
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+    <div className={`flex flex-wrap items-end gap-3 ${GLASS_CARD} p-4`}>
       <Field label="Status">
         <select
           value={searchParams.get("status") ?? ""}
           onChange={(e) => updateParam("status", e.target.value)}
-          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
         >
           <option value="">Any</option>
           {STATUS_OPTIONS.map((status) => (
@@ -71,7 +72,7 @@ export function LeadsFilterBar() {
         <select
           value={searchParams.get("channel") ?? ""}
           onChange={(e) => updateParam("channel", e.target.value)}
-          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
         >
           <option value="">Any</option>
           {CHANNEL_OPTIONS.map((channel) => (
@@ -86,7 +87,7 @@ export function LeadsFilterBar() {
         <select
           value={searchParams.get("health_flag") ?? ""}
           onChange={(e) => updateParam("health_flag", e.target.value)}
-          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
         >
           <option value="">Any</option>
           <option value="true">⚠ Flagged</option>
@@ -98,7 +99,7 @@ export function LeadsFilterBar() {
         <select
           value={searchParams.get("sort") ?? "review_date_desc"}
           onChange={(e) => updateParam("sort", e.target.value)}
-          className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+          className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -114,12 +115,12 @@ export function LeadsFilterBar() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="e.g. Bar Prasowy"
-            className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm"
+            className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
           />
         </Field>
         <button
           type="submit"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          className="rounded-lg border border-zinc-300/80 bg-white/80 px-3 py-1.5 text-sm hover:bg-white"
         >
           Search
         </button>

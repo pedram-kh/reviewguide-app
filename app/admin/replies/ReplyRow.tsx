@@ -78,7 +78,7 @@ export function ReplyRow({ leadId, status, placeId, placeName, rating, reviewSni
             type="button"
             onClick={() => run("replied", { status: "replied" })}
             disabled={busy !== null}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-40"
+            className="rounded-lg border border-zinc-300/80 bg-white/70 px-3 py-1.5 text-sm backdrop-blur hover:bg-white disabled:opacity-40"
           >
             {busy === "replied" ? "Marking…" : "Mark replied"}
           </button>
@@ -88,7 +88,7 @@ export function ReplyRow({ leadId, status, placeId, placeName, rating, reviewSni
             type="button"
             onClick={() => run("converted", { status: "converted" })}
             disabled={busy !== null}
-            className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+            className="rounded-lg border border-emerald-300/80 bg-white/70 px-3 py-1.5 text-sm text-emerald-700 backdrop-blur hover:bg-emerald-50 disabled:opacity-40"
           >
             {busy === "converted" ? "Marking…" : "Mark converted"}
           </button>
@@ -99,7 +99,7 @@ export function ReplyRow({ leadId, status, placeId, placeName, rating, reviewSni
             type="button"
             onClick={() => setShowDeadConfirm(true)}
             disabled={busy !== null}
-            className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-40"
+            className="rounded-lg border border-red-300/80 bg-white/70 px-3 py-1.5 text-sm text-red-700 backdrop-blur hover:bg-red-50 disabled:opacity-40"
           >
             Mark dead
           </button>
@@ -109,13 +109,13 @@ export function ReplyRow({ leadId, status, placeId, placeName, rating, reviewSni
               value={deadNote}
               onChange={(e) => setDeadNote(e.target.value)}
               placeholder="Why? (required)"
-              className="rounded-md border border-red-300 px-2 py-1 text-sm"
+              className="rounded-lg border border-red-300/80 bg-white/80 px-2 py-1 text-sm"
             />
             <button
               type="button"
               onClick={confirmDead}
               disabled={busy !== null}
-              className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-lg bg-red-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
             >
               {busy === "dead" ? "Marking…" : "Confirm"}
             </button>

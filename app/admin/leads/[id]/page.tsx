@@ -37,12 +37,12 @@ export default async function LeadDetailPage({
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
-      <Link href={backHref} className="text-sm text-zinc-500 underline">
+      <Link href={backHref} className="text-sm text-zinc-500 underline hover:text-zinc-900">
         ← Back to leads
       </Link>
 
       {loadError || !lead ? (
-        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700 backdrop-blur">
           Couldn&apos;t load lead {leadId}: {loadError}
         </div>
       ) : (

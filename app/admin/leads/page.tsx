@@ -8,6 +8,7 @@ import {
   type LeadStatus,
 } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { GLASS_CARD } from "@/lib/theme";
 
 import { LeadsFilterBar } from "./LeadsFilterBar";
 
@@ -59,7 +60,7 @@ export default async function LeadsPage({
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="text-2xl font-semibold text-zinc-900">Leads</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Leads</h1>
 
       {toast === "sent" && <ToastBanner text="Marked as sent." />}
       {toast === "skipped" && <ToastBanner text="Lead skipped to dead." />}
@@ -69,15 +70,15 @@ export default async function LeadsPage({
       </div>
 
       {error ? (
-        <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700 backdrop-blur">
           Couldn&apos;t load leads: {error}
         </div>
       ) : leads.length === 0 ? (
         <p className="mt-8 text-sm text-zinc-500">No leads match these filters.</p>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-lg border border-zinc-200">
+        <div className={`mt-6 overflow-hidden ${GLASS_CARD}`}>
           <div
-            className={`${GRID_COLS} gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500`}
+            className={`${GRID_COLS} gap-3 border-b border-white/60 bg-white/40 px-4 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500`}
           >
             <span>Status</span>
             <span>Channel</span>
@@ -87,12 +88,12 @@ export default async function LeadsPage({
             <span>Review date</span>
             <span>Snippet</span>
           </div>
-          <div className="divide-y divide-zinc-100 bg-white">
+          <div className="divide-y divide-white/50">
             {leads.map((lead) => (
               <Link
                 key={lead.lead_id}
                 href={`/admin/leads/${lead.lead_id}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`}
-                className={`${GRID_COLS} items-center gap-3 px-4 py-3 text-sm hover:bg-zinc-50`}
+                className={`${GRID_COLS} items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-white/60`}
               >
                 <span className="truncate">{lead.status.replaceAll("_", " ")}</span>
                 <span className="truncate text-zinc-500">{lead.channel ?? "—"}</span>
@@ -114,6 +115,8 @@ export default async function LeadsPage({
 
 function ToastBanner({ text }: { text: string }) {
   return (
-    <div className="mt-4 rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{text}</div>
+    <div className="mt-4 rounded-2xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-2 text-sm text-emerald-700 backdrop-blur">
+      {text}
+    </div>
   );
 }
