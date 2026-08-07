@@ -2,6 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3399;
 
+// Point the suite at the deployed site instead of a local build, e.g.
+// `E2E_BASE_URL=https://app.reviewguide.eu npx playwright test`. Used in ticket 4.5 to confirm
+// the finding-3 fix on production before asking the Stakeholder to retry.
+const LIVE_BASE_URL = process.env.E2E_BASE_URL;
+
 /**
  * Added by SPRINT_04.md ticket 4.5 for one specific regression class: the interstitial login form
  * silently not submitting. That bug was invisible to `tsc`, `eslint`, and every curl-level check
@@ -27,7 +32,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    baseURL: LIVE_BASE_URL ?? `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",
   },
   projects: [
@@ -40,10 +45,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: `npx next start --port ${PORT}`,
-    url: `http://127.0.0.1:${PORT}/login`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: LIVE_BASE_URL
+    ? undefined
+    : {
+        command: `npx next start --port ${PORT}`,
+        url: `http://127.0.0.1:${PORT}/login`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });
