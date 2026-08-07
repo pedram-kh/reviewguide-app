@@ -20,3 +20,22 @@ export function getRequestOrigin(request: Request): string {
     request.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${protocol}://${host}`;
 }
+
+/**
+ * A second, independent Netlify quirk found alongside the host one, and this one is *documented*
+ * platform behavior rather than a bug: Netlify auto-propagates the original request's query
+ * string onto any redirect Location that has none of its own (see
+ * github.com/opennextjs/opennextjs-netlify/issues/2209 and Netlify's own support guide on
+ * redirects + query strings). Verified live: hitting `/auth/verify?token=X` and redirecting to a
+ * clean `/app` got the spent one-time token re-appended as `/app?token=X` — visible in browser
+ * history/referrers even though the token can't be reused. Targets that already carry their own
+ * query (e.g. `/login?error=invalid_link`) are unaffected, confirmed live — only ones with an
+ * empty query need this. The documented workaround is exactly what it sounds like: give the
+ * target a query param of our own so there's nothing for Netlify to substitute.
+ */
+export function withNetlifyRedirectSafety(url: URL): URL {
+  if ([...url.searchParams.keys()].length === 0) {
+    url.searchParams.set("_r", "1");
+  }
+  return url;
+}

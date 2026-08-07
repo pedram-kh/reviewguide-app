@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { AuthApiError, verifyMagicLinkToken } from "@/lib/authApi";
-import { getRequestOrigin } from "@/lib/requestOrigin";
+import { getRequestOrigin, withNetlifyRedirectSafety } from "@/lib/requestOrigin";
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
@@ -26,7 +26,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request, reason);
   }
 
-  const response = NextResponse.redirect(new URL("/app", getRequestOrigin(request)));
+  const appUrl = withNetlifyRedirectSafety(new URL("/app", getRequestOrigin(request)));
+  const response = NextResponse.redirect(appUrl);
   response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,
     secure: true,
