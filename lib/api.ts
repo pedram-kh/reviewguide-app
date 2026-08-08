@@ -180,3 +180,63 @@ export function patchLead(leadId: number, body: LeadPatchBody): Promise<LeadDeta
     body: JSON.stringify(body),
   });
 }
+
+// --- customers (ticket 5.6, admin view of System B — read-only) --------------------------------
+
+export interface CustomerListItem {
+  customer_id: number;
+  email: string;
+  place_name: string | null;
+  subscription_status: string;
+  connected_at: string | null;
+  last_alert_at: string | null;
+}
+
+export interface CustomerPlaceInfo {
+  place_id: string;
+  name: string | null;
+  address: string | null;
+  rating: number | null;
+  last_polled_at: string | null;
+}
+
+export interface CustomerAlertHistoryItem {
+  alert_id: number;
+  review_id: string;
+  review_text: string | null;
+  review_rating: number | null;
+  review_date: string | null;
+  response_text: string;
+  is_urgent: boolean;
+  kind: string;
+  sent_at: string | null;
+  postmark_message_id: string | null;
+  generation_stop_reason: string | null;
+  created_at: string;
+}
+
+export interface DeliveryStatusItem {
+  postmark_message_id: string;
+  status: string | null;
+}
+
+export interface CustomerDetail {
+  customer_id: number;
+  email: string;
+  notification_email: string | null;
+  tone_preference: string;
+  subscription_status: string;
+  created_at: string;
+  connected_at: string | null;
+  place: CustomerPlaceInfo | null;
+  alerts: CustomerAlertHistoryItem[];
+  recent_delivery_statuses: DeliveryStatusItem[];
+}
+
+export function listCustomers(): Promise<CustomerListItem[]> {
+  return backendFetch<CustomerListItem[]>("/api/admin/customers");
+}
+
+export function getCustomer(customerId: number): Promise<CustomerDetail> {
+  return backendFetch<CustomerDetail>(`/api/admin/customers/${customerId}`);
+}

@@ -35,6 +35,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <Link href="/admin/replies" className="text-zinc-500 transition-colors hover:text-zinc-900">
               Replies
             </Link>
+            <Link
+              href="/admin/customers"
+              className="text-zinc-500 transition-colors hover:text-zinc-900"
+            >
+              Customers
+            </Link>
           </nav>
 
           {sentToday !== null && (
