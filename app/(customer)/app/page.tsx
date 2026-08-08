@@ -2,8 +2,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getBillingStatus } from "@/lib/billingApi";
+import { getCustomerState } from "@/lib/customerApi";
 import { DARK_GLASS_CARD } from "@/lib/theme";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
+
+import { CustomerPanel } from "./CustomerPanel";
 
 const STATUS_LABELS: Record<string, string> = {
   none: "brak",
@@ -52,9 +55,10 @@ export default async function AppPage({
   const status = await getBillingStatus(token).catch(() => null);
   const subscriptionStatus = status?.subscription_status ?? "none";
   const isAlreadySubscribed = ALREADY_SUBSCRIBED_STATUSES.has(subscriptionStatus);
+  const customerState = await getCustomerState(token).catch(() => null);
 
   return (
-    <div className="flex flex-1 flex-col items-center px-6 py-16">
+    <div className="flex flex-1 flex-col items-center gap-6 px-6 py-16">
       <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-8`}>
         <p className="text-sm text-white/60">Zalogowano jako</p>
         <p className="mt-1 text-lg font-semibold text-white">{session.email}</p>
@@ -113,6 +117,14 @@ export default async function AppPage({
           </button>
         </form>
       </div>
+
+      {customerState ? (
+        <CustomerPanel initialState={customerState} isSubscribed={isAlreadySubscribed} />
+      ) : (
+        <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-6 text-sm text-white/60`}>
+          Nie udało się wczytać panelu restauracji. Odśwież stronę za chwilę.
+        </div>
+      )}
     </div>
   );
 }

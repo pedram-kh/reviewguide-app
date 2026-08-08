@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3399;
+const STUB_BACKEND_PORT = 4009;
 
 // Point the suite at the deployed site instead of a local build, e.g.
 // `E2E_BASE_URL=https://app.reviewguide.eu npx playwright test`. Used in ticket 4.5 to confirm
@@ -47,10 +48,23 @@ export default defineConfig({
   ],
   webServer: LIVE_BASE_URL
     ? undefined
-    : {
-        command: `npx next start --port ${PORT}`,
-        url: `http://127.0.0.1:${PORT}/login`,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-      },
+    : [
+        // SPRINT_05.md ticket 5.3's customer-panel.spec.ts needs BACKEND_URL to point somewhere
+        // that will actually answer /api/billing/status + /api/customer/state/alerts during
+        // /app's server-side render (see e2e/fixtures/stub-backend.mjs's own docstring for why
+        // page.route() alone can't cover that call).
+        {
+          command: `node e2e/fixtures/stub-backend.mjs`,
+          port: STUB_BACKEND_PORT,
+          reuseExistingServer: !process.env.CI,
+          env: { STUB_BACKEND_PORT: String(STUB_BACKEND_PORT) },
+        },
+        {
+          command: `npx next start --port ${PORT}`,
+          url: `http://127.0.0.1:${PORT}/login`,
+          env: { BACKEND_URL: `http://127.0.0.1:${STUB_BACKEND_PORT}` },
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      ],
 });
