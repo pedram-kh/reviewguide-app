@@ -46,7 +46,14 @@ function CustomerDetailView({ customer }: { customer: CustomerDetail }) {
   return (
     <div className="mt-6 flex flex-col gap-6">
       <section className={`${GLASS_CARD} p-6`}>
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{customer.email}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{customer.email}</h1>
+          {customer.is_test && (
+            <span className="rounded-full bg-zinc-200/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+              test account
+            </span>
+          )}
+        </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <Field label="Notification email" value={customer.notification_email ?? "—"} />
           <Field label="Tone preference" value={customer.tone_preference} />

@@ -190,6 +190,7 @@ export interface CustomerListItem {
   subscription_status: string;
   connected_at: string | null;
   last_alert_at: string | null;
+  is_test: boolean;
 }
 
 export interface CustomerPlaceInfo {
@@ -228,6 +229,7 @@ export interface CustomerDetail {
   subscription_status: string;
   created_at: string;
   connected_at: string | null;
+  is_test: boolean;
   place: CustomerPlaceInfo | null;
   alerts: CustomerAlertHistoryItem[];
   recent_delivery_statuses: DeliveryStatusItem[];

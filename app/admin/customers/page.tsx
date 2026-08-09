@@ -30,6 +30,11 @@ export default async function CustomersPage() {
     error = err instanceof Error ? err.message : "Failed to load customers";
   }
 
+  // The headline number people actually act on. Test rows stay listed below, just not counted
+  // as traction — see migration 007.
+  const testCount = customers.filter((customer) => customer.is_test).length;
+  const realCount = customers.length - testCount;
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Customers</h1>
@@ -37,6 +42,12 @@ export default async function CustomersPage() {
         Read-only view of System B (the customer product) — connect status, subscription, and
         last alert per account.
       </p>
+      {customers.length > 0 && (
+        <p className="mt-2 text-sm text-zinc-600">
+          <span className="font-medium text-zinc-900">{realCount} real</span>
+          {testCount > 0 && <span className="text-zinc-400"> · {testCount} test</span>}
+        </p>
+      )}
 
       {error ? (
         <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-sm text-red-700 backdrop-blur">
@@ -62,7 +73,14 @@ export default async function CustomersPage() {
                 href={`/admin/customers/${customer.customer_id}`}
                 className={`${GRID_COLS} items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-white/60`}
               >
-                <span className="truncate font-medium text-zinc-900">{customer.email}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium text-zinc-900">{customer.email}</span>
+                  {customer.is_test && (
+                    <span className="shrink-0 rounded-full bg-zinc-200/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
+                      test
+                    </span>
+                  )}
+                </span>
                 <span className="truncate text-zinc-500">{customer.place_name ?? "—"}</span>
                 <span>
                   <span
