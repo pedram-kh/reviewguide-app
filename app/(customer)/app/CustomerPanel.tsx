@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { AlertItem, ConnectPlaceResult, CustomerState } from "@/lib/customerApi";
 import { formatDateTimePl } from "@/lib/format";
+import { readJson } from "@/lib/readJson";
 import { DARK_GLASS_CARD } from "@/lib/theme";
 
 import { AlertsList } from "./AlertsList";
@@ -55,9 +56,13 @@ export function CustomerPanel({
       setAlertsLoading(true);
       try {
         const response = await fetch("/api/customer/alerts");
-        const data = await response.json();
-        if (!cancelled) setAlerts(data.alerts as AlertItem[]);
+        const data = await readJson<{ alerts: AlertItem[] }>(response, "Nie udało się wczytać alertów.");
+        if (!cancelled) setAlerts(data.alerts);
       } catch {
+        // Empty rather than an error banner: the alerts list has its own "no alerts yet" empty state,
+        // and a failed load looks the same to a customer who genuinely has none. Reaching this branch
+        // on a failed *request* is new — the old code read the body without checking the status, so a
+        // 5xx set `alerts` to `undefined` and rendered as though the list had loaded successfully.
         if (!cancelled) setAlerts([]);
       } finally {
         if (!cancelled) setAlertsLoading(false);
@@ -80,8 +85,7 @@ export function CustomerPanel({
     const timer = setInterval(async () => {
       try {
         const response = await fetch("/api/customer/state");
-        if (!response.ok) return;
-        const data = (await response.json()) as CustomerState;
+        const data = await readJson<CustomerState>(response, "Nie udało się odczytać stanu.");
         if (!cancelled) setState(data);
       } catch {
         // A dropped poll is not worth surfacing — the next tick retries, and the customer already
@@ -99,8 +103,7 @@ export function CustomerPanel({
     setJustConnected(result);
     try {
       const response = await fetch("/api/customer/state");
-      const data = await response.json();
-      if (response.ok) setState(data as CustomerState);
+      setState(await readJson<CustomerState>(response, "Nie udało się odczytać stanu."));
     } catch {
       // The connect itself already succeeded (result is proof) — a failed state refetch just
       // means the page shows stale data until reload, not a lost connection.

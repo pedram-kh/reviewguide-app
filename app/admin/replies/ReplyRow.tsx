@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { formatDateTime } from "@/lib/format";
+import { readJson, UNEXPECTED_RESPONSE_EN } from "@/lib/readJson";
 
 export interface ReplyRowData {
   leadId: number;
@@ -23,10 +24,7 @@ async function patchLead(leadId: number, body: Record<string, unknown>): Promise
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error((data as { detail?: string }).detail ?? `Request failed (${response.status})`);
-  }
+  await readJson<unknown>(response, `Request failed (${response.status})`, UNEXPECTED_RESPONSE_EN);
 }
 
 export function ReplyRow({ leadId, status, placeId, placeName, rating, reviewSnippet, channel, sentAt }: ReplyRowData) {

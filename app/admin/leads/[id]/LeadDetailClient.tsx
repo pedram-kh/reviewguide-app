@@ -8,6 +8,7 @@ import type { LeadDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { canTransitionTo, explainWhyNotSendable } from "@/lib/leadTransitions";
 import { MAX_SENDS_PER_DAY } from "@/lib/limits";
+import { readJson, UNEXPECTED_RESPONSE_EN } from "@/lib/readJson";
 import { STATUS_BADGE } from "@/lib/statusStyle";
 import { GLASS_CARD } from "@/lib/theme";
 
@@ -20,11 +21,9 @@ async function patchLead(leadId: number, body: Record<string, unknown>): Promise
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error((data as { detail?: string }).detail ?? `Request failed (${response.status})`);
-  }
-  return data as LeadDetail;
+  // The `detail` string is worth preserving verbatim here: the backend's transition guard explains
+  // itself (e.g. "Illegal transition ... (LOGIC.md §3)"), which is exactly what an operator needs.
+  return readJson<LeadDetail>(response, `Request failed (${response.status})`, UNEXPECTED_RESPONSE_EN);
 }
 
 export function LeadDetailClient({

@@ -39,21 +39,32 @@ async function backendFetch<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    // FastAPI's HTTPException body is {"detail": "..."} — surface that message verbatim
-    // (e.g. "Illegal transition ... (LOGIC.md §3)") instead of a generic failure string.
-    let detail = body;
-    try {
-      const parsed = JSON.parse(body) as { detail?: string };
-      if (parsed.detail) detail = parsed.detail;
-    } catch {
-      // not JSON — fall back to the raw body text
-    }
-    throw new BackendApiError(response.status, detail);
+  // One read, one guarded parse, for both paths. The success path used to call `response.json()`
+  // bare, so a 2xx carrying a non-JSON body (a gateway's HTML page) escaped as a raw `SyntaxError`
+  // instead of a `BackendApiError` the admin pages know how to render (ticket 6.2's sweep — the
+  // browser-side equivalent of this guard lives in `lib/readJson.ts`).
+  const body = await response.text();
+  let parsed: unknown = null;
+  let parseFailed = false;
+  try {
+    parsed = body ? JSON.parse(body) : null;
+  } catch {
+    parseFailed = true;
   }
 
-  return response.json() as Promise<T>;
+  if (!response.ok) {
+    // FastAPI's HTTPException body is {"detail": "..."} — surface that message verbatim
+    // (e.g. "Illegal transition ... (LOGIC.md §3)") instead of a generic failure string.
+    const detail = (parsed as { detail?: unknown } | null)?.detail;
+    throw new BackendApiError(response.status, typeof detail === "string" ? detail : body);
+  }
+
+  if (parseFailed || parsed === null) {
+    // Truncated: if this is an HTML error page, the first line identifies it and the rest is noise.
+    throw new BackendApiError(response.status, `Backend returned a non-JSON body: ${body.slice(0, 200)}`);
+  }
+
+  return parsed as T;
 }
 
 // --- stats (ticket 3.2) ---------------------------------------------------------------------

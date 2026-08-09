@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { CustomerState } from "@/lib/customerApi";
+import { readJson } from "@/lib/readJson";
 
 const TONE_LABELS: Record<string, string> = {
   formal: "Formalny",
@@ -40,11 +41,11 @@ export function SettingsForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notification_email: notificationEmail, tone_preference: tonePreference }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(typeof data?.detail === "string" ? data.detail : "Nie udało się zapisać ustawień.");
-      }
-      onSaved(data as CustomerState);
+      // This `catch` renders `err.message` straight to the customer, which is what made the
+      // unguarded parse here the same latent bug 6.1 hit on connect: a non-JSON body would have put
+      // a raw `SyntaxError` on screen. `readJson` guarantees the message is a sentence.
+      const data = await readJson<CustomerState>(response, "Nie udało się zapisać ustawień.");
+      onSaved(data);
       setSaved(true);
       setTimeout(() => setSaved(false), SAVED_FEEDBACK_MS);
     } catch (err) {
