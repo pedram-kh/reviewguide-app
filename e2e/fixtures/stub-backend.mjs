@@ -32,6 +32,9 @@ const DEFAULT_FIXTURE = {
     notification_email: "e2e@example.com",
     tone_preference: "formal",
     connected_at: null,
+    // Ticket 6.1: the real GET /api/customer/state always includes this, and the panel reads
+    // `state.day_one.status` on first render — a fixture without it would throw before painting.
+    day_one: { status: "not_started", summary: null },
     place: null,
   },
   alerts: [],

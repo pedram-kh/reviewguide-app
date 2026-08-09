@@ -55,9 +55,13 @@ async function loginAs(
 }
 
 test.describe("customer panel — connect-restaurant flow", () => {
-  test("searching, confirming, and connecting a restaurant renders the post-connect home", async ({
+  test("connecting shows the in-progress card, then the ready card once day-one finishes", async ({
     page,
   }) => {
+    // Ticket 6.1: connect-place answers 202 before the drafts exist, so "connected" and "drafts
+    // ready" are two separate moments in the UI now. This walks both, driving the transition the way
+    // production does — by changing what GET /api/customer/state reports between polls — rather than
+    // asserting a single end state that would pass even if the progress card never rendered.
     const customerId = uniqueCustomerId();
     await setFixture(customerId, {
       customerState: {
@@ -65,6 +69,7 @@ test.describe("customer panel — connect-restaurant flow", () => {
         notification_email: "connect-e2e@example.com",
         tone_preference: "formal",
         connected_at: null,
+        day_one: { status: "not_started", summary: null },
         place: null,
       },
     });
@@ -84,40 +89,54 @@ test.describe("customer panel — connect-restaurant flow", () => {
 
     await page.route("**/api/customer/connect-place", async (route) => {
       await route.fulfill({
-        status: 200,
+        status: 202,
         contentType: "application/json",
         body: JSON.stringify({
           place_id: "p1",
           name: "Pizzeria Testowa",
-          day_one: {
-            fetched_from_api: true,
-            reviews_considered: 3,
-            reviews_qualifying: 2,
-            drafts_generated: 2,
-            digest_sent: true,
-            capped: false,
-            cap_error: null,
-          },
+          day_one_started: true,
         }),
       });
     });
 
+    const connectedPlace = {
+      place_id: "p1",
+      name: "Pizzeria Testowa",
+      address: "ul. Testowa 1",
+      rating: 4.6,
+      last_polled_at: null,
+    };
+    const stateBase = {
+      email: "connect-e2e@example.com",
+      notification_email: "connect-e2e@example.com",
+      tone_preference: "formal",
+      connected_at: new Date().toISOString(),
+      place: connectedPlace,
+    };
+
+    // Flipped to `done` only after the in-progress card has been asserted, so the two states can't
+    // be satisfied by one response.
+    let dayOneFinished = false;
     await page.route("**/api/customer/state", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          email: "connect-e2e@example.com",
-          notification_email: "connect-e2e@example.com",
-          tone_preference: "formal",
-          connected_at: new Date().toISOString(),
-          place: {
-            place_id: "p1",
-            name: "Pizzeria Testowa",
-            address: "ul. Testowa 1",
-            rating: 4.6,
-            last_polled_at: null,
-          },
+          ...stateBase,
+          day_one: dayOneFinished
+            ? {
+                status: "done",
+                summary: {
+                  fetched_from_api: true,
+                  reviews_considered: 3,
+                  reviews_qualifying: 2,
+                  drafts_generated: 2,
+                  digest_sent: true,
+                  capped: false,
+                  cap_error: null,
+                },
+              }
+            : { status: "running", summary: null },
         }),
       });
     });
@@ -139,9 +158,21 @@ test.describe("customer panel — connect-restaurant flow", () => {
 
     await page.getByRole("button", { name: "Połącz" }).click();
 
-    await expect(page.getByText("Restauracja połączona!")).toBeVisible();
+    // The connect landed and the panel says so honestly: connected, drafts still being written.
+    await expect(page.getByText("Restauracja połączona — przygotowujemy odpowiedzi")).toBeVisible();
     await expect(page.getByText("Połączona restauracja")).toBeVisible();
-    await expect(page.getByText("Pizzeria Testowa")).toBeVisible();
+    await expect(page.getByText("Pizzeria Testowa").first()).toBeVisible();
+    // The finished-run card must NOT be claiming anything yet.
+    await expect(page.getByText("Odpowiedzi gotowe!")).toHaveCount(0);
+
+    dayOneFinished = true;
+
+    // Arrives via the panel's own poll, no reload — the thing the customer never got before.
+    await expect(page.getByText("Odpowiedzi gotowe!")).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByText("Wysłaliśmy e-mail z 2 gotowymi odpowiedziami na najnowsze recenzje.")
+    ).toBeVisible();
+    await expect(page.getByText("Restauracja połączona — przygotowujemy odpowiedzi")).toHaveCount(0);
   });
 });
 
@@ -151,6 +182,20 @@ test.describe("customer panel — alerts list", () => {
     notification_email: "alerts-e2e@example.com",
     tone_preference: "formal",
     connected_at: new Date().toISOString(),
+    // A returning customer whose day-one finished long ago: `done`, and no `justConnected` in this
+    // session, so neither the progress nor the ready card shows — only the alerts list under test.
+    day_one: {
+      status: "done",
+      summary: {
+        fetched_from_api: true,
+        reviews_considered: 1,
+        reviews_qualifying: 1,
+        drafts_generated: 1,
+        digest_sent: true,
+        capped: false,
+        cap_error: null,
+      },
+    },
     place: {
       place_id: "p-alerts",
       name: "Bar Alertowy",

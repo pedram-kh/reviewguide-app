@@ -98,10 +98,15 @@ export interface DayOneSummary {
   cap_error: string | null;
 }
 
+/**
+ * Ticket 6.1: connect-place now answers 202 as soon as the connection is committed, and the day-one
+ * job runs behind it — so this no longer carries the day-one summary. That arrives later, via
+ * `CustomerState.day_one`, which the panel polls until the run finishes.
+ */
 export interface ConnectPlaceResult {
   place_id: string;
   name: string | null;
-  day_one: DayOneSummary;
+  day_one_started: boolean;
 }
 
 export function connectPlace(
@@ -119,12 +124,26 @@ export interface PlaceInfo {
   last_polled_at: string | null;
 }
 
+/**
+ * Ticket 6.1. `running` means the day-one job is in flight right now; `stale` means it started but
+ * never recorded a finish — in practice an App Runner restart (every deploy) landing mid-run — and
+ * tells the panel to stop waiting rather than poll forever. `summary` is populated only once the run
+ * has finished (`done` or `failed`).
+ */
+export type DayOneStatus = "not_started" | "running" | "done" | "failed" | "stale";
+
+export interface DayOneRunState {
+  status: DayOneStatus;
+  summary: DayOneSummary | null;
+}
+
 export interface CustomerState {
   email: string;
   notification_email: string | null;
   tone_preference: string;
   connected_at: string | null;
   place: PlaceInfo | null;
+  day_one: DayOneRunState;
 }
 
 export function getCustomerState(sessionToken: string): Promise<CustomerState> {

@@ -12,18 +12,61 @@ type PendingConnect =
   | { source: "search"; place_id: string; name: string | null; address: string | null; rating: number | null }
   | { source: "url"; place_id: string; maps_url: string; name: string | null };
 
+/**
+ * Ticket 6.1: parses defensively rather than calling `response.json()` on whatever came back.
+ *
+ * The old version called `.json()` unconditionally, before even checking `response.ok`. When an
+ * infrastructure layer between the browser and this app returned an HTML error page — which is what
+ * Netlify does when a route handler exceeds its function timeout — the resulting `SyntaxError` was
+ * caught by the caller and rendered to the customer verbatim as
+ * `Unexpected token '<', "<HTML> <HE"... is not valid JSON`. A JavaScript parse error is not a
+ * message about their restaurant, and it appeared for a connect that had in fact succeeded.
+ *
+ * Ticket 6.1's 202 removes the timeout that caused it, but not the general possibility of a gateway
+ * answering with HTML, so the parse stays guarded and unparseable bodies get a human sentence.
+ */
+const UNEXPECTED_RESPONSE =
+  "Serwer zwrócił nieoczekiwaną odpowiedź. Odśwież stronę, aby sprawdzić aktualny stan.";
+
+/**
+ * Reads a response body as JSON, or throws a sentence a restaurant owner can act on.
+ *
+ * The point is that it never calls `response.json()`. Both callers in this file used to, before even
+ * checking `response.ok` — so when an infrastructure layer between the browser and this app answered
+ * with an HTML error page (which is what Netlify does when a route handler exceeds its function
+ * timeout), the resulting `SyntaxError` propagated to the UI and was rendered verbatim as
+ * `Unexpected token '<', "<HTML> <HE"... is not valid JSON`. That is a JavaScript parse error, not a
+ * message about anyone's restaurant, and in the live case that surfaced it (ticket 6.1) it appeared
+ * for a connect that had actually succeeded.
+ *
+ * Ticket 6.1's 202 removes the timeout behind that specific incident, but not the general
+ * possibility of a gateway answering with HTML, so the guard stays.
+ */
+async function readJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const raw = await response.text();
+  let data: { detail?: unknown } | null = null;
+  try {
+    data = raw ? (JSON.parse(raw) as { detail?: unknown }) : null;
+  } catch {
+    data = null;
+  }
+
+  if (data === null) {
+    throw new Error(response.ok ? UNEXPECTED_RESPONSE : `${UNEXPECTED_RESPONSE} (${response.status})`);
+  }
+  if (!response.ok) {
+    throw new Error(typeof data.detail === "string" ? data.detail : fallbackMessage);
+  }
+  return data as T;
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) {
-    const detail = typeof data?.detail === "string" ? data.detail : `Błąd (${response.status})`;
-    throw new Error(detail);
-  }
-  return data as T;
+  return readJson<T>(response, `Błąd (${response.status})`);
 }
 
 /**
@@ -72,11 +115,11 @@ export function ConnectRestaurantFlow({
       setSearchError(null);
       try {
         const response = await fetch(`/api/customer/search-place?q=${encodeURIComponent(trimmedQuery)}`);
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(typeof data?.detail === "string" ? data.detail : "Wyszukiwanie nie powiodło się.");
-        }
-        setResults(data.results as SearchPlaceResult[]);
+        const data = await readJson<{ results: SearchPlaceResult[] }>(
+          response,
+          "Wyszukiwanie nie powiodło się."
+        );
+        setResults(data.results);
       } catch (err) {
         setSearchError(err instanceof Error ? err.message : "Wyszukiwanie nie powiodło się.");
         setResults([]);
