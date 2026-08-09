@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -13,7 +14,15 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
     <div className={DARK_PAGE_BACKGROUND}>
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-5xl items-center px-6 py-5">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-white">
+          <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
+            <Image
+              src="/icon-192.png"
+              alt=""
+              width={28}
+              height={28}
+              className="rounded-full"
+              aria-hidden="true"
+            />
             ReviewGuide
           </Link>
         </div>
