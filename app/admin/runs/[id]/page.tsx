@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { BackendApiError, getRun, type PollRunDetail, type RunAlertItem } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { GLASS_CARD } from "@/lib/theme";
+
+import { Accordion } from "../../Accordion";
 import { runStatus } from "../runStatus";
 
 export const dynamic = "force-dynamic";
@@ -87,24 +89,34 @@ function RunDetailView({ run }: { run: PollRunDetail }) {
           </p>
         ) : (
           <div className="mt-4 flex flex-col gap-6">
-            {run.customers.map((customer) => (
-              <div key={customer.customer_id}>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <Link
-                    href={`/admin/customers/${customer.customer_id}`}
-                    className="font-medium text-zinc-900 underline decoration-zinc-300 hover:decoration-zinc-900"
-                  >
-                    {customer.email}
-                  </Link>
-                  <span className="text-sm text-zinc-500">{customer.place_name ?? "—"}</span>
-                </div>
-                <div className="mt-3 flex flex-col gap-3">
+            {run.customers.map((customer, index) => {
+              const urgentCount = customer.alerts.filter((alert) => alert.is_urgent).length;
+              return (
+                <Accordion
+                  key={customer.customer_id}
+                  defaultOpen={index === 0}
+                  label={
+                    <Link
+                      href={`/admin/customers/${customer.customer_id}`}
+                      className="font-medium text-zinc-900 underline decoration-zinc-300 hover:decoration-zinc-900"
+                    >
+                      {customer.email}
+                    </Link>
+                  }
+                  meta={
+                    <span className="text-sm text-zinc-500">
+                      {customer.place_name ?? "—"} · {customer.alerts.length} draft
+                      {customer.alerts.length === 1 ? "" : "s"}
+                      {urgentCount > 0 && ` · ${urgentCount} PILNE`}
+                    </span>
+                  }
+                >
                   {customer.alerts.map((alert) => (
                     <AlertCard key={alert.alert_id} alert={alert} />
                   ))}
-                </div>
-              </div>
-            ))}
+                </Accordion>
+              );
+            })}
           </div>
         )}
       </section>

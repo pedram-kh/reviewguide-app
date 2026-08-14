@@ -13,7 +13,8 @@ export type IconName =
   | "check"
   | "x"
   | "chart-bar"
-  | "envelope";
+  | "envelope"
+  | "chevron-down";
 
 function IconPath({ name }: { name: IconName }) {
   switch (name) {
@@ -60,6 +61,8 @@ function IconPath({ name }: { name: IconName }) {
       );
     case "envelope":
       return <path d="M3 5.5h14v9H3v-9Zm0 0 7 6 7-6" strokeLinejoin="round" />;
+    case "chevron-down":
+      return <path d="M5 8l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />;
   }
 }
 

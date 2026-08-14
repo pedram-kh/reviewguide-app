@@ -10,6 +10,8 @@ import {
 import { formatDate, formatDateTime } from "@/lib/format";
 import { GLASS_CARD } from "@/lib/theme";
 
+import { Accordion } from "../../Accordion";
+
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDetailPage({
@@ -120,26 +122,33 @@ function CustomerDetailView({ customer }: { customer: CustomerDetail }) {
           <p className="mt-3 text-sm text-zinc-500">No alerts generated yet.</p>
         ) : (
           <div className="mt-4 flex flex-col gap-6">
-            {groupAlertsByRun(customer.alerts).map((group) => (
-              <div key={group.key}>
-                <div className="flex items-baseline gap-2 border-b border-white/60 pb-1">
-                  {group.runId ? (
-                    <Link
-                      href={`/admin/runs/${group.runId}`}
-                      className="text-xs font-semibold uppercase tracking-wide text-zinc-600 underline decoration-zinc-300 hover:decoration-zinc-900"
-                    >
-                      Run {group.runId.slice(0, 8)}…
-                    </Link>
-                  ) : (
-                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      {group.label}
+            {groupAlertsByRun(customer.alerts).map((group, index) => {
+              const urgentCount = group.alerts.filter((alert) => alert.is_urgent).length;
+              return (
+                <Accordion
+                  key={group.key}
+                  defaultOpen={index === 0}
+                  label={
+                    group.runId ? (
+                      <Link
+                        href={`/admin/runs/${group.runId}`}
+                        className="text-xs font-semibold uppercase tracking-wide text-zinc-600 underline decoration-zinc-300 hover:decoration-zinc-900"
+                      >
+                        Run {group.runId.slice(0, 8)}…
+                      </Link>
+                    ) : (
+                      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        {group.label}
+                      </span>
+                    )
+                  }
+                  meta={
+                    <span className="text-xs text-zinc-400">
+                      {group.alerts.length} draft{group.alerts.length === 1 ? "" : "s"}
+                      {urgentCount > 0 && ` · ${urgentCount} PILNE`}
                     </span>
-                  )}
-                  <span className="text-xs text-zinc-400">
-                    {group.alerts.length} draft{group.alerts.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-col gap-4">
+                  }
+                >
                   {group.alerts.map((alert) => (
                     <div
                       key={alert.alert_id}
@@ -171,9 +180,9 @@ function CustomerDetailView({ customer }: { customer: CustomerDetail }) {
                       </p>
                     </div>
                   ))}
-                </div>
-              </div>
-            ))}
+                </Accordion>
+              );
+            })}
           </div>
         )}
       </section>
