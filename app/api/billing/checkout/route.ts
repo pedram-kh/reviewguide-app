@@ -16,8 +16,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(withNetlifyRedirectSafety(new URL("/login", getRequestOrigin(request))));
   }
 
+  // Ticket 6.6, part C — the /app form posts a plain (non-JS) checkbox named
+  // "immediate_start_consent"; the browser's own `required` attribute already blocks submission
+  // when it's unticked, but this Route Handler re-checks it server-side too (defense in depth,
+  // same posture as the backend's own re-check in app/routers/billing.py) before ever calling
+  // the backend.
+  const formData = await request.formData();
+  const immediateStartConsent = formData.get("immediate_start_consent") === "true";
+  if (!immediateStartConsent) {
+    const appUrl = new URL("/app", getRequestOrigin(request));
+    appUrl.searchParams.set("error", "billing_error");
+    return NextResponse.redirect(appUrl, { status: 303 });
+  }
+
   try {
-    const { checkout_url: checkoutUrl } = await createCheckoutSession(sessionToken);
+    const { checkout_url: checkoutUrl } = await createCheckoutSession(
+      sessionToken,
+      immediateStartConsent
+    );
     return NextResponse.redirect(checkoutUrl, { status: 303 });
   } catch (error) {
     // 409 = backend's _ALREADY_SUBSCRIBED_STATUSES guard (found live 2026-08-08) — a distinct,

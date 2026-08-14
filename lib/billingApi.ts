@@ -21,7 +21,7 @@ export class BillingApiError extends Error {
 async function billingFetch<T>(
   path: string,
   sessionToken: string,
-  init?: { method?: "GET" | "POST" }
+  init?: { method?: "GET" | "POST"; body?: unknown }
 ): Promise<T> {
   const backendUrl = process.env.BACKEND_URL;
   if (!backendUrl) {
@@ -30,7 +30,11 @@ async function billingFetch<T>(
 
   const response = await fetch(`${backendUrl}${path}`, {
     method: init?.method ?? "GET",
-    headers: { Authorization: `Bearer ${sessionToken}` },
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
     cache: "no-store",
   });
 
@@ -63,9 +67,13 @@ export function getBillingStatus(sessionToken: string): Promise<BillingStatus> {
 }
 
 export function createCheckoutSession(
-  sessionToken: string
+  sessionToken: string,
+  immediateStartConsent: boolean
 ): Promise<{ checkout_url: string }> {
-  return billingFetch("/api/billing/checkout", sessionToken, { method: "POST" });
+  return billingFetch("/api/billing/checkout", sessionToken, {
+    method: "POST",
+    body: { immediate_start_consent: immediateStartConsent },
+  });
 }
 
 export function createPortalSession(sessionToken: string): Promise<{ portal_url: string }> {

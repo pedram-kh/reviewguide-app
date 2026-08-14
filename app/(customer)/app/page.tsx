@@ -88,7 +88,24 @@ export default async function AppPage({
 
         <div className="mt-6 flex flex-col gap-3">
           {!isAlreadySubscribed ? (
-            <form action="/api/billing/checkout" method="post">
+            <form action="/api/billing/checkout" method="post" className="flex flex-col gap-3">
+              {/* Ticket 6.6, part C — Terms § 8.3's withdrawal-waiver checkbox. `required` blocks
+                  the native form POST without any JS, same as EmailAuthForm's signup checkbox;
+                  the Route Handler + backend also re-check it server-side (see
+                  app/api/billing/checkout/route.ts and app/routers/billing.py). */}
+              <label className="flex items-start gap-2.5 text-left text-sm text-white/70">
+                <input
+                  type="checkbox"
+                  name="immediate_start_consent"
+                  value="true"
+                  required
+                  className="mt-0.5 size-4 shrink-0 rounded border-white/30 bg-white/5"
+                />
+                <span>
+                  Żądam niezwłocznego rozpoczęcia świadczenia Usługi i przyjmuję do wiadomości, że
+                  po jej pełnym wykonaniu utracę prawo odstąpienia od Umowy.
+                </span>
+              </label>
               <button
                 type="submit"
                 className="w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"

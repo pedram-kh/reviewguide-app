@@ -11,6 +11,7 @@ export default function SignupPage() {
         title="Załóż konto"
         subtitle="Podaj adres e-mail, a wyślemy Ci link do zalogowania. Bez hasła, 14 dni za darmo."
         submitLabel="Wyślij link"
+        mode="signup"
       />
     </div>
   );
