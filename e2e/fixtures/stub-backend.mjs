@@ -42,6 +42,140 @@ const DEFAULT_FIXTURE = {
 
 const fixturesByCustomerId = new Map();
 
+const ADMIN_STATS = {
+  total_leads: 0,
+  ready_to_send: 0,
+  sent_today: 0,
+  replies: 0,
+  places: 0,
+  reviews: 0,
+};
+
+// Two runs: one ordinary, one that hit a per-customer daily cap (which the list must flag in red).
+const ADMIN_RUNS = [
+  {
+    run_id: "run-capped-0000000000000000",
+    started_at: "2026-08-13T12:00:00Z",
+    finished_at: "2026-08-13T12:01:00Z",
+    trigger_source: "scheduler",
+    customers_polled: 2,
+    records_fetched: 37,
+    new_alerts: 6,
+    emails_sent: 3,
+    backfilled: 0,
+    skipped: 1,
+    deferred: 2,
+    aborted: false,
+    error_note: null,
+  },
+  {
+    run_id: "run-quiet-00000000000000000",
+    started_at: "2026-08-13T10:00:00Z",
+    finished_at: "2026-08-13T10:00:20Z",
+    trigger_source: "scheduler",
+    customers_polled: 2,
+    records_fetched: 4,
+    new_alerts: 0,
+    emails_sent: 0,
+    backfilled: 0,
+    skipped: 0,
+    deferred: 0,
+    aborted: false,
+    error_note: null,
+  },
+];
+
+const ADMIN_RUN_CUSTOMERS = {
+  "run-capped-0000000000000000": [
+    {
+      customer_id: 42,
+      email: "owner@example.com",
+      place_name: "Testowa Restauracja",
+      alerts: [
+        {
+          alert_id: 1,
+          review_id: "rev-urgent",
+          review_text: "Zimna zupa i długie czekanie.",
+          review_rating: 2,
+          review_date: "2026-08-13T09:00:00Z",
+          response_text: "Bardzo nam przykro.",
+          is_urgent: true,
+          sent_at: "2026-08-13T12:00:30Z",
+          postmark_message_id: "msg-urgent",
+          generation_stop_reason: "end_turn",
+          created_at: "2026-08-13T12:00:25Z",
+        },
+        {
+          alert_id: 2,
+          review_id: "rev-deferred",
+          review_text: "Wszystko w porządku.",
+          review_rating: 5,
+          review_date: "2026-08-13T09:30:00Z",
+          response_text: "Dziękujemy!",
+          is_urgent: false,
+          sent_at: null,
+          postmark_message_id: null,
+          generation_stop_reason: "end_turn",
+          created_at: "2026-08-13T12:00:40Z",
+        },
+      ],
+    },
+  ],
+};
+
+// One alert attributed to a run, one historical row with run_id null — the customer page must
+// group the first under a run header and fall back to the date for the second (ticket 6.4 D4).
+const ADMIN_CUSTOMER_DETAIL = {
+  customer_id: 42,
+  email: "owner@example.com",
+  notification_email: "owner@example.com",
+  tone_preference: "formal",
+  subscription_status: "trialing",
+  created_at: "2026-07-01T09:00:00Z",
+  connected_at: "2026-07-02T09:00:00Z",
+  is_test: true,
+  place: {
+    place_id: "p1",
+    name: "Testowa Restauracja",
+    address: "ul. Testowa 1",
+    rating: 4.2,
+    last_polled_at: "2026-08-13T12:00:00Z",
+  },
+  alerts: [
+    {
+      alert_id: 1,
+      review_id: "rev-urgent",
+      review_text: "Zimna zupa i długie czekanie.",
+      review_rating: 2,
+      review_date: "2026-08-13T09:00:00Z",
+      response_text: "Bardzo nam przykro.",
+      is_urgent: true,
+      kind: "alert",
+      sent_at: "2026-08-13T12:00:30Z",
+      postmark_message_id: "msg-urgent",
+      generation_stop_reason: "end_turn",
+      created_at: "2026-08-13T12:00:25Z",
+      run_id: "run-capped-0000000000000000",
+    },
+    {
+      alert_id: 99,
+      review_id: "rev-historical",
+      review_text: "Stara recenzja sprzed migracji 010.",
+      review_rating: 4,
+      review_date: "2026-07-20T09:00:00Z",
+      response_text: "Dziękujemy za opinię.",
+      is_urgent: false,
+      kind: "digest",
+      sent_at: "2026-07-20T10:00:00Z",
+      postmark_message_id: "msg-old",
+      generation_stop_reason: "end_turn",
+      created_at: "2026-07-20T09:30:00Z",
+      run_id: null,
+    },
+  ],
+  recent_delivery_statuses: [],
+};
+
 function customerIdFromAuthHeader(req) {
   const header = req.headers["authorization"];
   if (!header?.startsWith("Bearer ")) return null;
@@ -109,6 +243,32 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/api/customer/alerts") {
     return sendJson(res, 200, { alerts: fixtureFor(customerId ?? "anonymous").alerts });
+  }
+
+  // --- /admin fixtures (ticket 6.4's runs UI) --------------------------------------------------
+  //
+  // Static rather than per-test, unlike the customer fixtures above: /admin has no session to key
+  // on (it is HTTP Basic Auth, one shared identity), and these pages are read-only, so every test
+  // can safely look at the same data. Kept deliberately small — just enough shape to prove the
+  // pages render what the API returns.
+
+  if (req.method === "GET" && url.pathname === "/api/admin/stats") {
+    return sendJson(res, 200, ADMIN_STATS);
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/runs") {
+    return sendJson(res, 200, ADMIN_RUNS);
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/admin/runs/")) {
+    const runId = decodeURIComponent(url.pathname.slice("/api/admin/runs/".length));
+    const run = ADMIN_RUNS.find((candidate) => candidate.run_id === runId);
+    if (!run) return sendJson(res, 404, { detail: `no such run ${runId}` });
+    return sendJson(res, 200, { ...run, customers: ADMIN_RUN_CUSTOMERS[runId] ?? [] });
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/admin/customers/")) {
+    return sendJson(res, 200, ADMIN_CUSTOMER_DETAIL);
   }
 
   sendJson(res, 404, { detail: `stub-backend: no fixture route for ${req.method} ${url.pathname}` });

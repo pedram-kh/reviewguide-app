@@ -8,6 +8,10 @@ const STUB_BACKEND_PORT = 4009;
 // the finding-3 fix on production before asking the Stakeholder to retry.
 const LIVE_BASE_URL = process.env.E2E_BASE_URL;
 
+// Shared with e2e/admin-runs.spec.ts, which sends them as HTTP Basic credentials.
+export const E2E_ADMIN_USER = "e2e-admin";
+export const E2E_ADMIN_PASS = "e2e-admin-pass";
+
 /**
  * Added by SPRINT_04.md ticket 4.5 for one specific regression class: the interstitial login form
  * silently not submitting. That bug was invisible to `tsc`, `eslint`, and every curl-level check
@@ -62,7 +66,14 @@ export default defineConfig({
         {
           command: `npx next start --port ${PORT}`,
           url: `http://127.0.0.1:${PORT}/login`,
-          env: { BACKEND_URL: `http://127.0.0.1:${STUB_BACKEND_PORT}` },
+          env: {
+            BACKEND_URL: `http://127.0.0.1:${STUB_BACKEND_PORT}`,
+            // /admin is behind HTTP Basic Auth and fails closed when these are unset, so ticket
+            // 6.4's admin-runs spec cannot reach a single page without them. Local-fixture
+            // credentials only — this webServer block never runs against a deployed environment.
+            ADMIN_USER: E2E_ADMIN_USER,
+            ADMIN_PASS: E2E_ADMIN_PASS,
+          },
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },

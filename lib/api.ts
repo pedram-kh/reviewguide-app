@@ -225,6 +225,9 @@ export interface CustomerAlertHistoryItem {
   postmark_message_id: string | null;
   generation_stop_reason: string | null;
   created_at: string;
+  // Ticket 6.4. Null for alerts written before migration 010 and for day-one welcome digests,
+  // which no poll run produced — the UI groups those by date instead.
+  run_id: string | null;
 }
 
 export interface DeliveryStatusItem {
@@ -252,4 +255,56 @@ export function listCustomers(): Promise<CustomerListItem[]> {
 
 export function getCustomer(customerId: number): Promise<CustomerDetail> {
   return backendFetch<CustomerDetail>(`/api/admin/customers/${customerId}`);
+}
+
+// --- poll runs (ticket 6.4, admin observability for the 2h poller — read-only) -----------------
+
+export interface PollRunListItem {
+  run_id: string;
+  started_at: string;
+  // Null means the run never reported back — a crash, not a quiet run. Rendered as a warning.
+  finished_at: string | null;
+  trigger_source: string;
+  customers_polled: number;
+  records_fetched: number;
+  new_alerts: number;
+  emails_sent: number;
+  backfilled: number;
+  skipped: number;
+  deferred: number;
+  aborted: boolean;
+  error_note: string | null;
+}
+
+export interface RunAlertItem {
+  alert_id: number;
+  review_id: string;
+  review_text: string | null;
+  review_rating: number | null;
+  review_date: string | null;
+  response_text: string;
+  is_urgent: boolean;
+  sent_at: string | null;
+  postmark_message_id: string | null;
+  generation_stop_reason: string | null;
+  created_at: string;
+}
+
+export interface RunCustomerBreakdown {
+  customer_id: number;
+  email: string;
+  place_name: string | null;
+  alerts: RunAlertItem[];
+}
+
+export interface PollRunDetail extends PollRunListItem {
+  customers: RunCustomerBreakdown[];
+}
+
+export function listRuns(): Promise<PollRunListItem[]> {
+  return backendFetch<PollRunListItem[]>("/api/admin/runs");
+}
+
+export function getRun(runId: string): Promise<PollRunDetail> {
+  return backendFetch<PollRunDetail>(`/api/admin/runs/${encodeURIComponent(runId)}`);
 }
