@@ -21,11 +21,13 @@ export const metadata: Metadata = {
     // app/favicon.ico (Next.js file convention) already covers the base favicon; these add the
     // sizes it can't (PWA icons + Apple touch), matching reviewguide-marketing's asset set exactly
     // so /signup, /login, /app never show a mismatched mark vs. the landing (ticket 4.6).
+    // `?v=6.7` cache-busts the ticket-6.7 brand-mark replacement — see the matching comment in
+    // reviewguide-marketing's app/layout.tsx.
     icon: [
-      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon-192.png?v=6.7", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png?v=6.7", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [{ url: "/apple-touch-icon.png?v=6.7", sizes: "180x180" }],
   },
 };
 

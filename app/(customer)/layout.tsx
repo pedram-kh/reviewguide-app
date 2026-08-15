@@ -15,12 +15,15 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-5xl items-center px-6 py-5">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
+            {/* Ticket 6.7 — /brand/mark.png (transparent) instead of /icon-192.png (opaque white
+                background, per the marketing repo's asset pipeline): this header sits on the dark
+                theme (DARK_PAGE_BACKGROUND, bg-black), and a white-padded icon would show as a
+                visible white square/circle behind the mark instead of blending in. */}
             <Image
-              src="/icon-192.png"
+              src="/brand/mark.png"
               alt=""
               width={28}
               height={28}
-              className="rounded-full"
               aria-hidden="true"
             />
             ReviewGuide
