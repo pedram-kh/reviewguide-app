@@ -392,6 +392,122 @@ test.describe("customer panel — ticket 6.9 restructure", () => {
     }
   });
 
+  // Ticket 6.9a bug 1: the drawer's `position: fixed` panel/backdrop were nested inside the
+  // sticky header, which has `backdrop-blur-xl` — a `backdrop-filter` ancestor becomes the
+  // containing block for fixed descendants, so `inset: 0`/`height: calc(100% - 74px)` resolved
+  // against the 74px header box instead of the viewport. Measured live: the backdrop painted as a
+  // 412×74 rectangle pinned to the header corner and the panel as a same-corner sliver — "solid
+  // white" in CSS but visually indistinguishable from transparent because almost none of the
+  // screen was actually covered. Portaled to `document.body` in the fix; these assertions pin the
+  // panel to a real, opaque, near-full-height overlay so a regression back into the header's
+  // stacking context fails immediately.
+  test("mobile drawer opens as a solid, near-full-height overlay with a visible backdrop (bug 1)", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile-chromium", "drawer variant only exists ≤768px");
+    await openPanel(page, "drawer-geometry-e2e@example.com");
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("expected a viewport size on the mobile-chromium project");
+
+    await page.getByRole("button", { name: "Otwórz menu" }).click();
+    const panel = page.locator('[data-variant="drawer"]');
+    await expect(panel).toBeVisible();
+    // Let the enter transition finish so the assertions below read the settled, open state.
+    await page.waitForTimeout(300);
+
+    const geometry = await panel.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return {
+        top: rect.top,
+        height: rect.height,
+        parentIsBody: el.parentElement === document.body,
+        backgroundColor: style.backgroundColor,
+      };
+    });
+    // Not "rgba(0, 0, 0, 0)"/"transparent" — this is the exact regression: a fully opaque
+    // `background: var(--card)` in the stylesheet that nonetheless painted nothing visible
+    // because the element's box itself was squashed to a 74px-tall sliver by the containing-block
+    // bug. Height is the real signal: it must cover the large majority of the viewport below the
+    // header, not just a few dozen pixels.
+    expect(geometry.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(geometry.parentIsBody).toBe(true);
+    expect(geometry.top).toBeGreaterThanOrEqual(70);
+    expect(geometry.top).toBeLessThanOrEqual(80);
+    expect(geometry.height).toBeGreaterThan(viewport.height - 120);
+
+    const backdrop = page.locator(".account-menu-backdrop");
+    await expect(backdrop).toBeVisible();
+    const backdropGeometry = await backdrop.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, opacity: getComputedStyle(el).opacity };
+    });
+    expect(backdropGeometry.width).toBeGreaterThan(viewport.width - 10);
+    expect(backdropGeometry.height).toBeGreaterThan(viewport.height - 10);
+    expect(Number(backdropGeometry.opacity)).toBeGreaterThan(0.9);
+
+    // Tap handling: tapping the backdrop (not the panel) closes the drawer.
+    await backdrop.click({ position: { x: 10, y: 10 } });
+    await expect(page.getByRole("dialog", { name: "Menu konta" })).toHaveCount(0, { timeout: 2000 });
+  });
+
+  // Ticket 6.9a bug 2: `<Link href="/app?tab=ustawienia">` in the menu did update the URL, but
+  // CustomerPanel's tab lived in `useState(initialTab)` — an initializer React only consults on
+  // mount — so the already-mounted panel never actually switched tabs. Covers both menu variants
+  // per the ticket ("from either menu variant").
+  test("Ustawienia from the account menu activates the settings tab (bug 2, both variants)", async ({
+    page,
+  }, testInfo) => {
+    const email = "menu-tab-e2e@example.com";
+    await openPanel(page, email);
+    const isMobile = testInfo.project.name === "mobile-chromium";
+
+    if (isMobile) {
+      await page.getByRole("button", { name: "Otwórz menu" }).click();
+      await page.getByRole("dialog", { name: "Menu konta" }).getByRole("link", { name: "Ustawienia" }).click();
+    } else {
+      await page.getByRole("button", { name: `Konto ${email}` }).click();
+      await page.getByRole("menu", { name: "Menu konta" }).getByRole("link", { name: "Ustawienia" }).click();
+    }
+
+    await expect(page).toHaveURL(/tab=ustawienia/);
+    // The menu closes (part c of the fix) ...
+    await expect(page.getByRole("dialog", { name: "Menu konta" })).toHaveCount(0);
+    await expect(page.getByRole("menu", { name: "Menu konta" })).toHaveCount(0);
+    // ... and the tab itself actually activates — not just the URL. Asserting on the *connected*
+    // tab bar (not the disconnected account's standalone settings card, which has no tablist) is
+    // the regression check: a fixture bug once made this pass against the wrong branch entirely.
+    await expect(page.getByRole("tab", { name: "Ustawienia" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Adres e-mail do powiadomień")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Najnowsze" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  test("browser back/forward switches tabs, not just clicks (bug 2)", async ({ page }) => {
+    await openPanel(page, "back-forward-e2e@example.com");
+    await expect(page.getByRole("tab", { name: "Najnowsze" })).toHaveAttribute("aria-selected", "true");
+
+    await page.getByRole("tab", { name: /Historia/ }).click();
+    await expect(page).toHaveURL(/tab=historia/);
+    await page.getByRole("tab", { name: "Ustawienia" }).click();
+    await expect(page).toHaveURL(/tab=ustawienia/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/tab=historia/);
+    await expect(page.getByRole("tab", { name: /Historia/ })).toHaveAttribute("aria-selected", "true");
+
+    await page.goBack();
+    await expect(page).not.toHaveURL(/tab=/);
+    await expect(page.getByRole("tab", { name: "Najnowsze" })).toHaveAttribute("aria-selected", "true");
+
+    await page.goForward();
+    await expect(page).toHaveURL(/tab=historia/);
+    await expect(page.getByRole("tab", { name: /Historia/ })).toHaveAttribute("aria-selected", "true");
+
+    await page.goForward();
+    await expect(page).toHaveURL(/tab=ustawienia/);
+    await expect(page.getByRole("tab", { name: "Ustawienia" })).toHaveAttribute("aria-selected", "true");
+  });
+
   test("tabs switch and stay in sync with the URL", async ({ page }) => {
     await openPanel(page);
     await expect(page.getByRole("tab", { name: "Najnowsze" })).toHaveAttribute("aria-selected", "true");

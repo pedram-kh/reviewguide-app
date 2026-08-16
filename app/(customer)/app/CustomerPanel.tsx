@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { groupAlertsByWarsawDay, latestDayAlerts, urgentCountLast7Days } from "@/lib/alertGroups";
@@ -42,23 +43,33 @@ const TAB_LABELS: Record<PanelTab, string> = {
  *
  * Ticket 6.1's day-one progress state is unchanged: connect-place answers 202 before the drafts
  * exist, so "connected" and "your drafts are ready" stay two different moments.
+ *
+ * Ticket 6.9a (bug 2): the tab is derived from `useSearchParams()` rather than a one-time
+ * `initialTab` prop + local `useState`. The prop-based version only read `?tab=` on this
+ * component's *first* mount — a `<Link href="/app?tab=ustawienia">` click (the header menu's
+ * Ustawienia item) does update the URL and re-renders the server page with a new prop, but
+ * `useState(initialTab)`'s initializer is only consulted on mount, so the already-mounted
+ * component's tab never moved. `useSearchParams()` is reactive to every URL change the Next.js
+ * router makes — Link clicks, `router.push`, and browser back/forward alike (same pattern as
+ * `admin/leads/LeadsFilterBar.tsx`) — so `tab` is now single-source-of-truth from the URL, with
+ * no separate state to fall out of sync and no manual `popstate` listener needed.
  */
 export function CustomerPanel({
   initialState,
   isSubscribed,
   subscriptionStatus,
-  initialTab,
 }: {
   initialState: CustomerState;
   isSubscribed: boolean;
   subscriptionStatus: string;
-  initialTab: PanelTab;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = parsePanelTab(searchParams.get("tab"));
   const [state, setState] = useState(initialState);
   const [alerts, setAlerts] = useState<AlertItem[] | null>(null);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [justConnected, setJustConnected] = useState<ConnectPlaceResult | null>(null);
-  const [tab, setTab] = useState<PanelTab>(initialTab);
 
   const dayOneStatus = state.day_one.status;
   const dayOneRunning = dayOneStatus === "running";
@@ -107,20 +118,11 @@ export function CustomerPanel({
     };
   }, [dayOneRunning]);
 
-  useEffect(() => {
-    function onPop() {
-      setTab(parsePanelTab(new URLSearchParams(window.location.search).get("tab")));
-    }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
   function selectTab(next: PanelTab) {
-    setTab(next);
-    const url = new URL(window.location.href);
-    if (next === "najnowsze") url.searchParams.delete("tab");
-    else url.searchParams.set("tab", next);
-    window.history.pushState(null, "", url);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "najnowsze") params.delete("tab");
+    else params.set("tab", next);
+    router.push(params.toString() ? `/app?${params.toString()}` : "/app", { scroll: false });
   }
 
   async function handleConnected(result: ConnectPlaceResult) {

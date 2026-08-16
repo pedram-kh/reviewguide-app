@@ -228,20 +228,34 @@ body {
   cursor: pointer;
 }
 
+/* Ticket 6.9a: z-index bumped from 60/61 to 80/81 — the header is `z-[70]` (`lib/theme.ts`'s
+   CUSTOMER_NAV), and the drawer/backdrop are now portaled to <body> (see AccountMenu.tsx's
+   docstring), so they compete against the header directly in the root stacking context instead of
+   automatically painting on top of it as a header descendant would. Both need to win. */
 .account-menu-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 80;
   background: rgba(27, 35, 48, 0.4);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.account-menu-backdrop[data-open="true"] {
+  opacity: 1;
 }
 
 .account-menu-panel {
-  z-index: 61;
+  z-index: 81;
   background: var(--card);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
 }
 
+/* Transition-driven (not @keyframes) so the same rule animates both the enter AND the exit:
+   AccountMenu.tsx keeps the panel mounted (`rendered`) for one transition-length after `open`
+   flips false, so the transform below animates back to translateX(100%) instead of the node just
+   vanishing. */
 .account-menu-panel[data-variant="drawer"] {
   position: fixed;
   top: 74px;
@@ -252,7 +266,12 @@ body {
   border-radius: 0;
   display: flex;
   flex-direction: column;
-  animation: account-drawer-in 0.2s ease;
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+}
+
+.account-menu-panel[data-variant="drawer"][data-open="true"] {
+  transform: translateX(0);
 }
 
 .account-menu-panel[data-variant="dropdown"] {
@@ -262,6 +281,16 @@ body {
   width: 18rem;
   padding: 8px 0;
   border-radius: var(--radius);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.account-menu-panel[data-variant="dropdown"][data-open="true"] {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .account-menu-email {
@@ -296,15 +325,6 @@ body {
 
 .account-menu-item-danger {
   color: var(--rose-ink);
-}
-
-@keyframes account-drawer-in {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
 }
 
 @media (min-width: 769px) {

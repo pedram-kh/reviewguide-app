@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { getBillingStatus } from "@/lib/billingApi";
 import { getCustomerState } from "@/lib/customerApi";
-import { parsePanelTab } from "@/lib/panelTabs";
 import { CUSTOMER_CARD } from "@/lib/theme";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
@@ -24,7 +23,9 @@ const ALREADY_SUBSCRIBED_STATUSES = new Set(["trialing", "active"]);
 export default async function AppPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; checkout?: string; tab?: string }>;
+  // `tab` itself is read client-side (CustomerPanel's useSearchParams(), ticket 6.9a) — this
+  // server component only needs the two banner params.
+  searchParams: Promise<{ error?: string; checkout?: string }>;
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -34,7 +35,7 @@ export default async function AppPage({
     redirect("/login");
   }
 
-  const { error, checkout, tab } = await searchParams;
+  const { error, checkout } = await searchParams;
   const status = await getBillingStatus(token).catch(() => null);
   const subscriptionStatus = status?.subscription_status ?? "none";
   const isAlreadySubscribed = ALREADY_SUBSCRIBED_STATUSES.has(subscriptionStatus);
@@ -63,7 +64,6 @@ export default async function AppPage({
           initialState={customerState}
           isSubscribed={isAlreadySubscribed}
           subscriptionStatus={subscriptionStatus}
-          initialTab={parsePanelTab(tab)}
         />
       ) : (
         <div className={`${CUSTOMER_CARD} w-full max-w-2xl p-6 text-sm text-ink-soft`}>
