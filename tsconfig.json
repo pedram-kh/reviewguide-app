@@ -3,6 +3,11 @@
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
+    // Required for lib/format.test.ts's explicit ".ts" import specifier — Node's native TS
+    // type-stripping (node --test, no dependency needed) requires the extension to resolve the
+    // module; tsc refuses ".ts" import paths unless this is set. Harmless elsewhere: it only
+    // permits the extension, it doesn't require any other import to use it.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
