@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { getBillingStatus } from "@/lib/billingApi";
 import { getCustomerState } from "@/lib/customerApi";
-import { DARK_GLASS_CARD } from "@/lib/theme";
+import { CUSTOMER_CARD } from "@/lib/theme";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 import { CustomerPanel } from "./CustomerPanel";
@@ -59,29 +59,29 @@ export default async function AppPage({
 
   return (
     <div className="flex flex-1 flex-col items-center gap-6 px-6 py-16">
-      <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-8`}>
-        <p className="text-sm text-white/60">Zalogowano jako</p>
-        <p className="mt-1 text-lg font-semibold text-white">{session.email}</p>
+      <div className={`${CUSTOMER_CARD} w-full max-w-lg p-8`}>
+        <p className="text-sm text-ink-soft">Zalogowano jako</p>
+        <p className="mt-1 text-lg font-semibold text-ink">{session.email}</p>
 
-        <p className="mt-6 text-sm text-white/60">
+        <p className="mt-6 text-sm text-ink-soft">
           Subskrypcja:{" "}
-          <span className="text-white">
+          <span className="font-medium text-ink">
             {STATUS_LABELS[subscriptionStatus] ?? subscriptionStatus}
           </span>
         </p>
 
         {checkout === "success" && (
-          <p className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+          <p className="mt-3 rounded-lg border border-green/30 bg-green-soft px-3 py-2 text-sm text-green-ink">
             Dziękujemy! Okres próbny wkrótce się pojawi (chwilę zajmuje przetworzenie przez Stripe).
           </p>
         )}
         {error === "already_subscribed" && (
-          <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+          <p className="mt-3 rounded-lg border border-gold/40 bg-cream-2 px-3 py-2 text-sm text-gold-ink">
             Masz już aktywną subskrypcję — zarządzaj nią poniżej, w portalu klienta.
           </p>
         )}
         {error && error !== "already_subscribed" && (
-          <p className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+          <p className="mt-3 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
             Coś poszło nie tak z płatnościami. Spróbuj ponownie za chwilę.
           </p>
         )}
@@ -93,32 +93,26 @@ export default async function AppPage({
                   the native form POST without any JS, same as EmailAuthForm's signup checkbox;
                   the Route Handler + backend also re-check it server-side (see
                   app/api/billing/checkout/route.ts and app/routers/billing.py). */}
-              <label className="flex items-start gap-2.5 text-left text-sm text-white/70">
+              <label className="flex items-start gap-2.5 text-left text-sm text-ink-soft">
                 <input
                   type="checkbox"
                   name="immediate_start_consent"
                   value="true"
                   required
-                  className="mt-0.5 size-4 shrink-0 rounded border-white/30 bg-white/5"
+                  className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
                 />
                 <span>
                   Żądam niezwłocznego rozpoczęcia świadczenia Usługi i przyjmuję do wiadomości, że
                   po jej pełnym wykonaniu utracę prawo odstąpienia od Umowy.
                 </span>
               </label>
-              <button
-                type="submit"
-                className="w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-              >
+              <button type="submit" className="btn btn-primary w-full">
                 Rozpocznij okres próbny
               </button>
             </form>
           ) : (
             <form action="/api/billing/portal" method="post">
-              <button
-                type="submit"
-                className="w-full rounded-full border border-white/15 px-4 py-2.5 text-sm text-white transition-colors hover:border-white/30"
-              >
+              <button type="submit" className="btn btn-ghost w-full">
                 Zarządzaj subskrypcją
               </button>
             </form>
@@ -128,7 +122,7 @@ export default async function AppPage({
         <form action="/api/auth/logout" method="post" className="mt-8">
           <button
             type="submit"
-            className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 transition-colors hover:border-white/30 hover:text-white"
+            className="rounded-full border border-line px-4 py-2 text-sm text-ink-soft transition-colors hover:border-gold-deep/50 hover:text-ink"
           >
             Wyloguj
           </button>
@@ -138,7 +132,7 @@ export default async function AppPage({
       {customerState ? (
         <CustomerPanel initialState={customerState} isSubscribed={isAlreadySubscribed} />
       ) : (
-        <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-6 text-sm text-white/60`}>
+        <div className={`${CUSTOMER_CARD} w-full max-w-lg p-6 text-sm text-ink-soft`}>
           Nie udało się wczytać panelu restauracji. Odśwież stronę za chwilę.
         </div>
       )}

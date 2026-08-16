@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ConnectPlaceResult, SearchPlaceResult } from "@/lib/customerApi";
 import { readJson } from "@/lib/readJson";
-import { DARK_GLASS_CARD } from "@/lib/theme";
+import { CUSTOMER_CARD } from "@/lib/theme";
 
 const SEARCH_DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 2;
@@ -143,35 +143,30 @@ export function ConnectRestaurantFlow({
 
   if (pending) {
     return (
-      <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-6`}>
-        <p className="text-sm text-white/60">Potwierdź restaurację</p>
-        <p className="mt-2 text-lg font-semibold text-white">{pending.name ?? "Nieznana nazwa"}</p>
+      <div className={`${CUSTOMER_CARD} w-full max-w-lg p-6`}>
+        <p className="text-sm text-ink-soft">Potwierdź restaurację</p>
+        <p className="mt-2 text-lg font-semibold text-ink">{pending.name ?? "Nieznana nazwa"}</p>
         {pending.source === "search" ? (
           <>
-            {pending.address && <p className="mt-1 text-sm text-white/60">{pending.address}</p>}
+            {pending.address && <p className="mt-1 text-sm text-ink-soft">{pending.address}</p>}
             {pending.rating != null && (
-              <p className="mt-1 text-sm text-white/60">★ {pending.rating.toFixed(1)}</p>
+              <p className="mt-1 text-sm text-ink-soft">★ {pending.rating.toFixed(1)}</p>
             )}
           </>
         ) : (
-          <p className="mt-1 text-sm text-white/60">
+          <p className="mt-1 text-sm text-ink-soft">
             Adres i ocena pojawią się zaraz po połączeniu.
           </p>
         )}
 
         {connectError && (
-          <p className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+          <p className="mt-4 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
             {connectError}
           </p>
         )}
 
         <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={confirmConnect}
-            disabled={connecting}
-            className="flex-1 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
+          <button type="button" onClick={confirmConnect} disabled={connecting} className="btn btn-primary flex-1">
             {connecting ? "Łączenie…" : "Połącz"}
           </button>
           <button
@@ -181,7 +176,7 @@ export function ConnectRestaurantFlow({
               setConnectError(null);
             }}
             disabled={connecting}
-            className="rounded-full border border-white/15 px-4 py-2.5 text-sm text-white transition-colors hover:border-white/30 disabled:opacity-50"
+            className="btn btn-ghost"
           >
             Wróć
           </button>
@@ -191,19 +186,21 @@ export function ConnectRestaurantFlow({
   }
 
   return (
-    <div className={`${DARK_GLASS_CARD} w-full max-w-lg p-6`}>
-      <p className="text-sm text-white/60">Połącz restaurację</p>
-      <p className="mt-2 text-lg font-semibold text-white">Nie masz jeszcze połączonej restauracji</p>
-      <p className="mt-1 text-sm text-white/60">
+    <div className={`${CUSTOMER_CARD} w-full max-w-lg p-6`}>
+      <p className="text-sm text-ink-soft">Połącz restaurację</p>
+      <p className="mt-2 text-lg font-semibold text-ink">Nie masz jeszcze połączonej restauracji</p>
+      <p className="mt-1 text-sm text-ink-soft">
         Wyszukaj ją poniżej albo wklej link z Google Maps — a my znajdziemy jej najnowsze recenzje.
       </p>
 
-      <div className="mt-5 flex gap-2 text-xs">
+      {/* #3a2600 (not text-white — 2.07:1 on gold-deep, fails AA) matches btn-primary's dark-ink-
+          on-gold text, computed at 6.96:1. */}
+      <div className="mt-5 flex gap-2 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setMode("search")}
           className={`rounded-full px-3 py-1.5 transition-colors ${
-            mode === "search" ? "bg-white text-black" : "border border-white/15 text-white/70 hover:border-white/30"
+            mode === "search" ? "bg-gold-deep text-[#3a2600]" : "border border-line text-ink-soft hover:border-gold-deep/50"
           }`}
         >
           Wyszukaj
@@ -212,7 +209,7 @@ export function ConnectRestaurantFlow({
           type="button"
           onClick={() => setMode("url")}
           className={`rounded-full px-3 py-1.5 transition-colors ${
-            mode === "url" ? "bg-white text-black" : "border border-white/15 text-white/70 hover:border-white/30"
+            mode === "url" ? "bg-gold-deep text-[#3a2600]" : "border border-line text-ink-soft hover:border-gold-deep/50"
           }`}
         >
           Wklej link
@@ -226,17 +223,17 @@ export function ConnectRestaurantFlow({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Nazwa restauracji, np. Bar Warszawski"
-            className="w-full rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none"
+            className="rg-input"
           />
 
-          {searchLoading && <p className="mt-3 text-sm text-white/50">Szukam…</p>}
+          {searchLoading && <p className="mt-3 text-sm text-ink-soft">Szukam…</p>}
           {visibleError && (
-            <p className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+            <p className="mt-3 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
               {visibleError}
             </p>
           )}
           {!searchLoading && !visibleError && visibleHasSearched && visibleResults.length === 0 && (
-            <p className="mt-3 text-sm text-white/50">
+            <p className="mt-3 text-sm text-ink-soft">
               Brak wyników. Spróbuj innej nazwy albo wklej link z Google Maps.
             </p>
           )}
@@ -256,12 +253,12 @@ export function ConnectRestaurantFlow({
                         rating: result.rating,
                       })
                     }
-                    className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left text-sm text-white transition-colors hover:border-white/25 hover:bg-white/[0.06]"
+                    className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-left text-sm text-ink transition-colors hover:border-gold-deep/50 hover:bg-cream-2/60"
                   >
                     <span className="font-medium">{result.name ?? "Nieznana nazwa"}</span>
-                    {result.address && <span className="block text-xs text-white/50">{result.address}</span>}
+                    {result.address && <span className="block text-xs text-ink-soft">{result.address}</span>}
                     {result.rating != null && (
-                      <span className="mt-0.5 block text-xs text-white/50">★ {result.rating.toFixed(1)}</span>
+                      <span className="mt-0.5 block text-xs text-ink-soft">★ {result.rating.toFixed(1)}</span>
                     )}
                   </button>
                 </li>
@@ -276,18 +273,18 @@ export function ConnectRestaurantFlow({
             value={mapsUrl}
             onChange={(event) => setMapsUrl(event.target.value)}
             placeholder="https://maps.google.com/..."
-            className="w-full rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none"
+            className="rg-input"
           />
           <button
             type="button"
             onClick={checkMapsUrl}
             disabled={urlLoading || !mapsUrl.trim()}
-            className="mt-3 w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="btn btn-primary mt-3 w-full"
           >
             {urlLoading ? "Sprawdzam…" : "Sprawdź link"}
           </button>
           {urlError && (
-            <p className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+            <p className="mt-3 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
               {urlError}
             </p>
           )}

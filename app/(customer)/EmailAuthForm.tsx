@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
-import { DARK_GLASS_CARD } from "@/lib/theme";
+import { CUSTOMER_CARD } from "@/lib/theme";
 
 interface EmailAuthFormProps {
   title: string;
@@ -71,23 +71,23 @@ export function EmailAuthForm({
 
   if (status === "sent") {
     return (
-      <div className={`${DARK_GLASS_CARD} mx-auto max-w-md p-8 text-center`}>
-        <h1 className="text-2xl font-semibold text-white">Sprawdź skrzynkę</h1>
-        <p className="mt-3 text-sm text-white/70">
-          Jeśli <span className="text-white">{email}</span> jest prawidłowym adresem, wysłaliśmy na
-          niego link logowania. Link jest ważny 15 minut.
+      <div className={`${CUSTOMER_CARD} mx-auto max-w-md p-8 text-center`}>
+        <h1 className="text-2xl font-semibold text-ink">Sprawdź skrzynkę</h1>
+        <p className="mt-3 text-sm text-ink-soft">
+          Jeśli <span className="font-medium text-ink">{email}</span> jest prawidłowym adresem,
+          wysłaliśmy na niego link logowania. Link jest ważny 15 minut.
         </p>
       </div>
     );
   }
 
   return (
-    <div className={`${DARK_GLASS_CARD} mx-auto max-w-md p-8`}>
-      <h1 className="text-2xl font-semibold text-white">{title}</h1>
-      <p className="mt-2 text-sm text-white/70">{subtitle}</p>
+    <div className={`${CUSTOMER_CARD} mx-auto max-w-md p-8`}>
+      <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+      <p className="mt-2 text-sm text-ink-soft">{subtitle}</p>
 
       {errorMessage && (
-        <p className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+        <p className="mt-4 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
           {errorMessage}
         </p>
       )}
@@ -104,18 +104,18 @@ export function EmailAuthForm({
           placeholder="ty@restauracja.pl"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-white placeholder:text-white/40 outline-none focus:border-white/40"
+          className="rg-input"
         />
 
         {isSignup && (
           <div className="flex flex-col gap-2.5 pt-1">
-            <label className="flex items-start gap-2.5 text-sm text-white/80">
+            <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input
                 type="checkbox"
                 required
                 checked={acceptTerms}
                 onChange={(event) => setAcceptTerms(event.target.checked)}
-                className="mt-0.5 size-4 shrink-0 rounded border-white/30 bg-white/5"
+                className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
               />
               <span>
                 Akceptuję{" "}
@@ -123,7 +123,7 @@ export function EmailAuthForm({
                   href={`${LEGAL_BASE_URL}/regulamin`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-white"
+                  className="text-gold-ink underline hover:text-ink"
                 >
                   Regulamin
                 </a>{" "}
@@ -132,37 +132,33 @@ export function EmailAuthForm({
                   href={`${LEGAL_BASE_URL}/polityka-prywatnosci`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-white"
+                  className="text-gold-ink underline hover:text-ink"
                 >
                   Politykę Prywatności
                 </a>
                 .
               </span>
             </label>
-            <label className="flex items-start gap-2.5 text-sm text-white/60">
+            <label className="flex items-start gap-2.5 text-sm text-ink-soft">
               <input
                 type="checkbox"
                 checked={marketingConsent}
                 onChange={(event) => setMarketingConsent(event.target.checked)}
-                className="mt-0.5 size-4 shrink-0 rounded border-white/30 bg-white/5"
+                className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
               />
               <span>Chcę otrzymywać informacje marketingowe (newsletter) e-mailem.</span>
             </label>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={status === "submitting"}
-          className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
+        <button type="submit" disabled={status === "submitting"} className="btn btn-primary mt-1">
           {status === "submitting" ? "Wysyłanie…" : submitLabel}
         </button>
         {status === "error" && (
-          <p className="text-sm text-red-300">Coś poszło nie tak. Spróbuj ponownie.</p>
+          <p className="text-sm text-rose-ink">Coś poszło nie tak. Spróbuj ponownie.</p>
         )}
         {status === "consent_error" && (
-          <p className="text-sm text-red-300">
+          <p className="text-sm text-rose-ink">
             Musisz zaakceptować Regulamin i Politykę Prywatności, aby założyć konto.
           </p>
         )}

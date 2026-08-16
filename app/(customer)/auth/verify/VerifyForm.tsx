@@ -50,10 +50,7 @@ export function VerifyForm({ token }: { token: string }) {
       }}
     >
       <input type="hidden" name="token" value={token} />
-      <button
-        type="submit"
-        className="w-full rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-      >
+      <button type="submit" className="btn btn-primary w-full">
         Zaloguj się do ReviewGuide
       </button>
     </form>

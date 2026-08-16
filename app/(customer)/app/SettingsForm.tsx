@@ -57,25 +57,27 @@ export function SettingsForm({
 
   return (
     <div>
-      <label className="block text-xs text-white/50">Adres e-mail do powiadomień</label>
+      <label className="block text-xs text-ink-soft">Adres e-mail do powiadomień</label>
       <input
         type="email"
         value={notificationEmail}
         onChange={(event) => setNotificationEmail(event.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none"
+        className="rg-input mt-1.5"
       />
 
-      <label className="mt-4 block text-xs text-white/50">Ton odpowiedzi</label>
+      <label className="mt-4 block text-xs text-ink-soft">Ton odpowiedzi</label>
       <div className="mt-1.5 flex gap-2">
         {Object.entries(TONE_LABELS).map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => setTonePreference(value)}
-            className={`rounded-full px-3 py-1.5 text-xs transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               tonePreference === value
-                ? "bg-white text-black"
-                : "border border-white/15 text-white/70 hover:border-white/30"
+                ? // #3a2600 (not text-white — 2.07:1 on gold-deep, fails AA) matches btn-primary's
+                  // dark-ink-on-gold text, computed at 6.96:1.
+                  "bg-gold-deep text-[#3a2600]"
+                : "border border-line text-ink-soft hover:border-gold-deep/50"
             }`}
           >
             {label}
@@ -84,17 +86,12 @@ export function SettingsForm({
       </div>
 
       {error && (
-        <p className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+        <p className="mt-3 rounded-lg border border-rose/30 bg-rose-soft px-3 py-2 text-sm text-rose-ink">
           {error}
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving || !isDirty}
-        className="mt-4 rounded-full border border-white/15 px-4 py-2 text-sm text-white transition-colors hover:border-white/30 disabled:opacity-40"
-      >
+      <button type="button" onClick={handleSave} disabled={saving || !isDirty} className="btn btn-ghost mt-4">
         {saving ? "Zapisywanie…" : saved ? "Zapisano ✓" : "Zapisz ustawienia"}
       </button>
     </div>

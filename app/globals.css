@@ -8,3 +8,165 @@
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Ticket 6.8 — cream/gold tokens copied verbatim from reviewguide-marketing/app/globals.css's
+ * :root block (ticket 6.5's landing redesign), so the customer surfaces (/signup, /login,
+ * /auth/verify, /app) share the exact same palette instead of an approximated Tailwind color.
+ * /admin is untouched by design (ROADMAP's "Brand theme split" decision, revised 2026-08-15) and
+ * keeps using lib/theme.ts's GLASS_CARD/GLASS_NAV/PAGE_BACKGROUND below, unaffected by this block.
+ * Diff this block against the source file whenever the landing's tokens change.
+ */
+:root {
+  --ink: #1b2330;
+  --ink-soft: #4a5568;
+  --muted: #7b8698;
+  --cream: #fffaf2;
+  --cream-2: #fff4e3;
+  --card: #ffffff;
+  --line: #f0e7d8;
+  --gold: #ffb627;
+  --gold-deep: #ff9e00;
+  --gold-ink: #8a5a00;
+  --green: #1fb872;
+  --green-soft: #e7f8ef;
+  --rose: #ff6b6b;
+  --rose-soft: #ffecec;
+  --sky: #eaf4ff;
+  /* Not in the landing's token set — added here because the landing never puts paragraph text
+     directly in --rose/--green (only small icons/borders: e.g. its own .badge success pill uses
+     a hardcoded #0e7a4a rather than var(--green) for exactly this reason). --rose/--green
+     against their own -soft backgrounds compute to ~2.3-2.4:1, badly failing 4.5:1, so the
+     app's actual error/success banner text uses these darker ink variants instead, following
+     the same --gold/--gold-ink pairing already established above. */
+  --rose-ink: #b3261e;
+  --green-ink: #0e7a4a;
+  --shadow-sm: 0 2px 8px rgba(60, 45, 15, 0.06);
+  --shadow: 0 18px 45px -20px rgba(80, 55, 10, 0.28);
+  --shadow-lg: 0 40px 80px -30px rgba(80, 55, 10, 0.35);
+  --radius: 22px;
+  --radius-lg: 30px;
+}
+
+/* Re-registers the :root tokens above under Tailwind v4's namespaced theme keys (--color-*,
+   --shadow-*, --radius-*), which is what actually generates the bg-cream/text-ink/border-line/
+   shadow-card-sm/rounded-card utilities used across the customer components — `@theme inline`
+   (rather than plain `@theme`) is required because it references other custom properties instead
+   of static values, same reason the font variable above uses it. Names are suffixed (card-sm,
+   not sm) so they add new utilities instead of silently redefining Tailwind's own default
+   shadow-sm/rounded-lg/etc. scale, which /admin's existing markup also uses. */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-cream: var(--cream);
+  --color-cream-2: var(--cream-2);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-gold: var(--gold);
+  --color-gold-deep: var(--gold-deep);
+  --color-gold-ink: var(--gold-ink);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
+  --color-rose-ink: var(--rose-ink);
+  --color-green-ink: var(--green-ink);
+  --color-sky: var(--sky);
+  --shadow-card-sm: var(--shadow-sm);
+  --shadow-card: var(--shadow);
+  --shadow-card-lg: var(--shadow-lg);
+  --radius-card: var(--radius);
+  --radius-card-lg: var(--radius-lg);
+}
+
+/* Plus Jakarta Sans (next/font, latin + latin-ext — the 6.5 subset lesson: base "latin" drops
+   Polish diacritics) is loaded in app/layout.tsx as --font-plus-jakarta and scoped to this class
+   rather than swapped in globally on <body>, so /admin keeps its existing Geist font untouched. */
+.customer-shell {
+  font-family: var(--font-plus-jakarta), var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Button styles, ported verbatim (same var names) from reviewguide-marketing/app/globals.css's
+   .btn/.btn-primary/.btn-ghost so the interstitial/CTA buttons below read as the same component
+   as the landing's "Wypróbuj za darmo" button. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%);
+  color: #3a2600;
+  box-shadow: 0 14px 30px -12px rgba(255, 158, 0, 0.7);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 38px -12px rgba(255, 158, 0, 0.85);
+}
+
+.btn-ghost {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #e6d8bf;
+}
+
+/* Shared card surface for the customer panel — the landing has no single reusable "card" class
+   (its cards are contextual: .review-card, .step, .price-card, ...), so this consolidates the
+   same radius/line/shadow language into one class for the many repeated cards in /app. */
+.rg-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Text input, shared by EmailAuthForm, ConnectRestaurantFlow, and SettingsForm — visible
+   gold focus ring instead of the previous dark-theme's barely-there border-opacity change
+   (the 6.6b/c contrast lesson: compute, don't assume, so focus needs to be genuinely visible on
+   the light card background, not just technically present). */
+.rg-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 10px 14px;
+  font: inherit;
+  color: var(--ink);
+}
+
+.rg-input::placeholder {
+  color: var(--muted);
+}
+
+.rg-input:focus-visible {
+  outline: none;
+  border-color: var(--gold-deep);
+  box-shadow: 0 0 0 3px rgba(255, 158, 0, 0.28);
+}

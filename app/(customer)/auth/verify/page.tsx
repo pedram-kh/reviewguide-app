@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { DARK_GLASS_CARD } from "@/lib/theme";
+import { CUSTOMER_CARD } from "@/lib/theme";
 
 import { VerifyForm } from "./VerifyForm";
 
@@ -32,9 +32,9 @@ export default async function VerifyPage({
 
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className={`${DARK_GLASS_CARD} mx-auto max-w-md p-8 text-center`}>
-        <h1 className="text-2xl font-semibold text-white">Kliknij, aby dokończyć logowanie</h1>
-        <p className="mt-3 text-sm text-white/70">
+      <div className={`${CUSTOMER_CARD} mx-auto max-w-md p-8 text-center`}>
+        <h1 className="text-2xl font-semibold text-ink">Kliknij, aby dokończyć logowanie</h1>
+        <p className="mt-3 text-sm text-ink-soft">
           Ze względów bezpieczeństwa link z e-maila nie loguje Cię automatycznie — potwierdź
           poniżej.
         </p>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 import { Footer } from "@/components/Footer";
@@ -12,6 +12,18 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Ticket 6.8 — same font as reviewguide-marketing's landing (ticket 6.5), loaded once here
+// (self-hosted, no render-blocking Google Fonts <link>) but only ever applied via the
+// `.customer-shell` class in globals.css, not on <body> itself — so /admin's existing Geist
+// typography is untouched. latin-ext is required: the base "latin" subset drops the Polish
+// diacritics (ą ć ę ł ń ó ś ź ż) this app's customer copy is written in.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -35,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
         <div className="flex flex-1 flex-col">{children}</div>
