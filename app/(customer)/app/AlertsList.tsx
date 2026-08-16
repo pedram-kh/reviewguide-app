@@ -1,39 +1,20 @@
 "use client";
 
-import { useState } from "react";
-
 import type { AlertItem } from "@/lib/customerApi";
 import { formatDateTimePl } from "@/lib/format";
 
-const COPY_FEEDBACK_MS = 2000;
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-    } catch {
-      // Clipboard permission denied or unavailable (rare, but not worth surfacing as an error —
-      // the text is already selectable/visible for a manual copy).
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="rounded-full border border-line px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-gold-deep/50 hover:text-ink"
-    >
-      {copied ? "Skopiowano ✓" : "Kopiuj"}
-    </button>
-  );
-}
+import { CopyButton } from "./CopyButton";
 
 /** Ticket 5.3's "recent alerts list": review + draft + Copy button + "PILNE" badge on urgent. */
-export function AlertsList({ alerts, loading }: { alerts: AlertItem[] | null; loading: boolean }) {
+export function AlertsList({
+  alerts,
+  loading,
+  empty,
+}: {
+  alerts: AlertItem[] | null;
+  loading: boolean;
+  empty?: string;
+}) {
   if (loading) {
     return <p className="text-sm text-ink-soft">Wczytywanie alertów…</p>;
   }
@@ -41,8 +22,8 @@ export function AlertsList({ alerts, loading }: { alerts: AlertItem[] | null; lo
   if (!alerts || alerts.length === 0) {
     return (
       <p className="text-sm text-ink-soft">
-        Nie masz jeszcze żadnych alertów. Gdy pojawi się nowa recenzja, zobaczysz ją tutaj razem z
-        gotową odpowiedzią.
+        {empty ??
+          "Nie masz jeszcze żadnych alertów. Gdy pojawi się nowa recenzja, zobaczysz ją tutaj razem z gotową odpowiedzią."}
       </p>
     );
   }

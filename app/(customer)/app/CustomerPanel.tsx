@@ -2,51 +2,67 @@
 
 import { useEffect, useState } from "react";
 
+import { groupAlertsByWarsawDay, latestDayAlerts, urgentCountLast7Days } from "@/lib/alertGroups";
 import type { AlertItem, ConnectPlaceResult, CustomerState } from "@/lib/customerApi";
 import { formatDateTimePl } from "@/lib/format";
+import { parsePanelTab, type PanelTab } from "@/lib/panelTabs";
 import { readJson } from "@/lib/readJson";
 import { CUSTOMER_CARD } from "@/lib/theme";
 
 import { AlertsList } from "./AlertsList";
 import { ConnectRestaurantFlow } from "./ConnectRestaurantFlow";
+import { HistoryTable } from "./HistoryTable";
 import { SettingsForm } from "./SettingsForm";
 
-// Ticket 6.1: how often the panel re-reads GET /api/customer/state while day-one is in flight. The
-// job takes ~58s for a brand-new place (Outscraper + ten sequential Claude calls), so this is ~20
-// cheap DB-only reads over the life of a run — frequent enough that the card updates promptly,
-// nowhere near often enough to matter for a single connecting customer.
 const DAY_ONE_POLL_MS = 3000;
 
+const STATUS_CHIP: Record<string, { label: string; className: string }> = {
+  trialing: { label: "Okres próbny", className: "status-chip status-chip-trial" },
+  active: { label: "Aktywna", className: "status-chip status-chip-active" },
+  past_due: { label: "Zaległa płatność", className: "status-chip status-chip-warn" },
+  canceled: { label: "Anulowana", className: "status-chip status-chip-muted" },
+  unpaid: { label: "Nieopłacona", className: "status-chip status-chip-warn" },
+  incomplete: { label: "Niedokończona", className: "status-chip status-chip-muted" },
+  incomplete_expired: { label: "Wygasła", className: "status-chip status-chip-muted" },
+  paused: { label: "Wstrzymana", className: "status-chip status-chip-muted" },
+  none: { label: "Brak subskrypcji", className: "status-chip status-chip-muted" },
+};
+
+const TAB_LABELS: Record<PanelTab, string> = {
+  najnowsze: "Najnowsze",
+  historia: "Historia",
+  ustawienia: "Ustawienia",
+};
+
 /**
- * Ticket 5.3's customer panel: renders the connect-restaurant flow when no place is connected
- * yet, or the post-connect home (restaurant card, last-checked time, alerts, settings, billing
- * link) once one is. `initialState` comes from the server component's own fetch (no loading
- * flash on first paint); everything after that is client-side, same pattern as
- * app/admin/leads/[id]/LeadDetailClient.tsx.
+ * Ticket 5.3's customer panel, restructured in ticket 6.9: the restaurant card is the hero,
+ * alerts/settings live in URL-synced tabs, and the old "Zalogowano jako" card's data moved to
+ * the header menu + a status chip on this hero. `initialState` still comes from the server
+ * component's own fetch (no loading flash on first paint).
  *
- * Ticket 6.1 adds the day-one progress state. Because connect-place answers 202 before the drafts
- * exist, "connected" and "your drafts are ready" are now two different moments, and the panel has
- * to show both honestly instead of implying the second the instant the first happens. The polling
- * also covers the case that originally surfaced the bug: a customer who reloads mid-run gets the
- * progress card from the server-rendered state, not an empty-looking panel.
+ * Ticket 6.1's day-one progress state is unchanged: connect-place answers 202 before the drafts
+ * exist, so "connected" and "your drafts are ready" stay two different moments.
  */
 export function CustomerPanel({
   initialState,
   isSubscribed,
+  subscriptionStatus,
+  initialTab,
 }: {
   initialState: CustomerState;
   isSubscribed: boolean;
+  subscriptionStatus: string;
+  initialTab: PanelTab;
 }) {
   const [state, setState] = useState(initialState);
   const [alerts, setAlerts] = useState<AlertItem[] | null>(null);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [justConnected, setJustConnected] = useState<ConnectPlaceResult | null>(null);
+  const [tab, setTab] = useState<PanelTab>(initialTab);
 
   const dayOneStatus = state.day_one.status;
   const dayOneRunning = dayOneStatus === "running";
 
-  // Keyed on the status rather than the whole day_one object so the alerts reload fires when a run
-  // finishes (running -> done), which is the moment the drafts it generated become readable.
   useEffect(() => {
     if (!state.place) return;
     if (dayOneRunning) return;
@@ -59,10 +75,6 @@ export function CustomerPanel({
         const data = await readJson<{ alerts: AlertItem[] }>(response, "Nie udało się wczytać alertów.");
         if (!cancelled) setAlerts(data.alerts);
       } catch {
-        // Empty rather than an error banner: the alerts list has its own "no alerts yet" empty state,
-        // and a failed load looks the same to a customer who genuinely has none. Reaching this branch
-        // on a failed *request* is new — the old code read the body without checking the status, so a
-        // 5xx set `alerts` to `undefined` and rendered as though the list had loaded successfully.
         if (!cancelled) setAlerts([]);
       } finally {
         if (!cancelled) setAlertsLoading(false);
@@ -75,9 +87,6 @@ export function CustomerPanel({
     };
   }, [state.place, dayOneRunning]);
 
-  // Poll only while a run is actually in flight. `stale` deliberately does NOT keep polling: it
-  // means the run started but never recorded a finish (an App Runner restart mid-run), so no
-  // process is still working and there is nothing left to wait for.
   useEffect(() => {
     if (!dayOneRunning) return;
     let cancelled = false;
@@ -88,8 +97,7 @@ export function CustomerPanel({
         const data = await readJson<CustomerState>(response, "Nie udało się odczytać stanu.");
         if (!cancelled) setState(data);
       } catch {
-        // A dropped poll is not worth surfacing — the next tick retries, and the customer already
-        // has an accurate "in progress" card on screen either way.
+        // A dropped poll is not worth surfacing — the next tick retries.
       }
     }, DAY_ONE_POLL_MS);
 
@@ -99,34 +107,59 @@ export function CustomerPanel({
     };
   }, [dayOneRunning]);
 
+  useEffect(() => {
+    function onPop() {
+      setTab(parsePanelTab(new URLSearchParams(window.location.search).get("tab")));
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function selectTab(next: PanelTab) {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "najnowsze") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.pushState(null, "", url);
+  }
+
   async function handleConnected(result: ConnectPlaceResult) {
     setJustConnected(result);
     try {
       const response = await fetch("/api/customer/state");
       setState(await readJson<CustomerState>(response, "Nie udało się odczytać stanu."));
     } catch {
-      // The connect itself already succeeded (result is proof) — a failed state refetch just
-      // means the page shows stale data until reload, not a lost connection.
+      // The connect itself already succeeded — a failed state refetch just means stale data until reload.
     }
   }
 
   if (!state.place) {
     return (
-      <div className="flex w-full flex-col items-center gap-4">
-        <ConnectRestaurantFlow onConnected={handleConnected} />
+      <div className="flex w-full max-w-2xl flex-col items-center gap-6">
+        {tab === "ustawienia" ? (
+          <SettingsCard
+            state={state}
+            onSaved={setState}
+            isSubscribed={isSubscribed}
+            onBack={() => selectTab("najnowsze")}
+          />
+        ) : (
+          <ConnectRestaurantFlow onConnected={handleConnected} />
+        )}
       </div>
     );
   }
 
+  const groups = groupAlertsByWarsawDay(alerts ?? []);
+  const najnowsze = latestDayAlerts(alerts ?? []);
+  const recentUrgent = urgentCountLast7Days(alerts ?? []);
+
   return (
-    <div className="flex w-full max-w-lg flex-col gap-6">
+    <div className="flex w-full max-w-2xl flex-col gap-6">
       {dayOneRunning && (
         <div className={`${CUSTOMER_CARD} p-5`}>
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <span
-              className="inline-block h-2 w-2 animate-pulse rounded-full bg-gold-deep"
-              aria-hidden="true"
-            />
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-gold-deep" aria-hidden="true" />
             Restauracja połączona — przygotowujemy odpowiedzi
           </p>
           <p className="mt-1 text-sm text-ink-soft">
@@ -136,9 +169,6 @@ export function CustomerPanel({
         </div>
       )}
 
-      {/* A finished run reports what it actually did. `justConnected` gates this so it shows after a
-          connect in this session, not on every later visit — but the numbers come from the run's own
-          persisted summary, not from the connect response, which no longer carries them. */}
       {justConnected && dayOneStatus === "done" && state.day_one.summary && (
         <div className={`${CUSTOMER_CARD} p-5`}>
           <p className="text-sm font-semibold text-ink">Odpowiedzi gotowe!</p>
@@ -152,16 +182,13 @@ export function CustomerPanel({
           <button
             type="button"
             onClick={() => setJustConnected(null)}
-            className="mt-3 text-xs text-ink-soft underline underline-offset-2 hover:text-ink-soft"
+            className="mt-3 text-xs text-ink-soft underline underline-offset-2 hover:text-ink"
           >
             Zamknij
           </button>
         </div>
       )}
 
-      {/* Told, not hidden: the restaurant IS connected either way, and the 2h poller will pick up
-          new opinions regardless — but the day-one drafts specifically did not get made, so
-          promising them would be a lie and saying nothing would look like they never existed. */}
       {(dayOneStatus === "failed" || dayOneStatus === "stale") && (
         <div className={`${CUSTOMER_CARD} p-5`}>
           <p className="text-sm font-semibold text-ink">Restauracja połączona</p>
@@ -173,36 +200,177 @@ export function CustomerPanel({
         </div>
       )}
 
-      <div className={`${CUSTOMER_CARD} p-6`}>
-        <p className="text-sm text-ink-soft">Połączona restauracja</p>
-        <p className="mt-1 text-lg font-semibold text-ink">{state.place.name ?? "Bez nazwy"}</p>
-        {state.place.address && <p className="mt-1 text-sm text-ink-soft">{state.place.address}</p>}
-        {state.place.rating != null && (
-          <p className="mt-1 text-sm text-ink-soft">★ {state.place.rating.toFixed(1)}</p>
-        )}
-        <p className="mt-3 text-xs text-ink-soft">
-          Ostatnio sprawdzono:{" "}
-          {state.place.last_polled_at ? formatDateTimePl(state.place.last_polled_at) : "jeszcze nie sprawdzono"}
-        </p>
-      </div>
+      <RestaurantHero
+        name={state.place.name ?? "Bez nazwy"}
+        address={state.place.address}
+        rating={state.place.rating}
+        lastPolledAt={state.place.last_polled_at}
+        subscriptionStatus={subscriptionStatus}
+        isSubscribed={isSubscribed}
+        onStartTrial={() => selectTab("ustawienia")}
+      />
 
-      <div className={`${CUSTOMER_CARD} p-6`}>
-        <p className="mb-4 text-sm font-semibold text-ink">Ostatnie alerty</p>
-        <AlertsList alerts={alerts} loading={alertsLoading} />
-      </div>
-
-      <div className={`${CUSTOMER_CARD} p-6`}>
-        <p className="mb-4 text-sm font-semibold text-ink">Ustawienia</p>
-        <SettingsForm state={state} onSaved={setState} />
-
-        {isSubscribed && (
-          <form action="/api/billing/portal" method="post" className="mt-5 border-t border-line pt-4">
-            <button type="submit" className="text-xs text-ink-soft underline underline-offset-2 hover:text-ink-soft">
-              Zarządzaj subskrypcją
+      <div>
+        <div className="panel-tabs" role="tablist" aria-label="Panel restauracji">
+          {(Object.keys(TAB_LABELS) as PanelTab[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`panel-tab-${id}`}
+              aria-selected={tab === id}
+              aria-controls={`panel-tabpanel-${id}`}
+              className="panel-tab"
+              onClick={() => selectTab(id)}
+            >
+              {TAB_LABELS[id]}
+              {id === "historia" && recentUrgent > 0 && (
+                <span className="panel-tab-chip" aria-label={`${recentUrgent} pilnych z ostatnich 7 dni`}>
+                  {recentUrgent}
+                </span>
+              )}
             </button>
-          </form>
-        )}
+          ))}
+        </div>
+
+        <div
+          role="tabpanel"
+          id={`panel-tabpanel-${tab}`}
+          aria-labelledby={`panel-tab-${tab}`}
+          className="mt-5"
+        >
+          {tab === "najnowsze" && (
+            <AlertsList
+              alerts={alerts === null ? null : najnowsze}
+              loading={alertsLoading}
+            />
+          )}
+          {tab === "historia" &&
+            (alertsLoading ? (
+              <p className="text-sm text-ink-soft">Wczytywanie alertów…</p>
+            ) : (
+              <div className={`${CUSTOMER_CARD} p-2 sm:p-4`}>
+                <HistoryTable groups={groups} />
+              </div>
+            ))}
+          {tab === "ustawienia" && (
+            <SettingsCard state={state} onSaved={setState} isSubscribed={isSubscribed} />
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function RestaurantHero({
+  name,
+  address,
+  rating,
+  lastPolledAt,
+  subscriptionStatus,
+  isSubscribed,
+  onStartTrial,
+}: {
+  name: string;
+  address: string | null;
+  rating: number | null;
+  lastPolledAt: string | null;
+  subscriptionStatus: string;
+  isSubscribed: boolean;
+  onStartTrial: () => void;
+}) {
+  const chip = STATUS_CHIP[subscriptionStatus] ?? {
+    label: subscriptionStatus,
+    className: "status-chip status-chip-muted",
+  };
+
+  return (
+    <div className={`${CUSTOMER_CARD} restaurant-hero p-6 sm:p-8`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">{name}</h1>
+          {address && <p className="mt-1.5 text-sm text-ink-soft">{address}</p>}
+          {rating != null && (
+            <p className="mt-2 text-sm font-semibold text-gold-ink">★ {rating.toFixed(1)}</p>
+          )}
+        </div>
+        <span className={chip.className}>{chip.label}</span>
+      </div>
+
+      <p className="mt-5 flex items-center gap-2 text-sm text-ink-soft">
+        <span className="pulse-dot" aria-hidden="true" />
+        <span>
+          monitoring aktywny · ostatnie sprawdzenie:{" "}
+          <time dateTime={lastPolledAt ?? undefined}>
+            {lastPolledAt ? formatDateTimePl(lastPolledAt) : "jeszcze nie sprawdzono"}
+          </time>
+        </span>
+      </p>
+
+      {!isSubscribed && (
+        <p className="mt-4 text-sm text-ink-soft">
+          Subskrypcja nieaktywna.{" "}
+          <button type="button" onClick={onStartTrial} className="font-semibold text-gold-ink underline underline-offset-2">
+            Rozpocznij okres próbny
+          </button>{" "}
+          w Ustawieniach.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SettingsCard({
+  state,
+  onSaved,
+  isSubscribed,
+  onBack,
+}: {
+  state: CustomerState;
+  onSaved: (state: CustomerState) => void;
+  isSubscribed: boolean;
+  onBack?: () => void;
+}) {
+  return (
+    <div className={`${CUSTOMER_CARD} w-full p-6`}>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 text-xs text-ink-soft underline underline-offset-2 hover:text-ink"
+        >
+          ← Wróć
+        </button>
+      )}
+      <p className="mb-4 text-sm font-semibold text-ink">Ustawienia</p>
+      <SettingsForm state={state} onSaved={onSaved} />
+
+      {isSubscribed ? (
+        <form action="/api/billing/portal" method="post" className="mt-5 border-t border-line pt-4">
+          <button type="submit" className="text-sm font-semibold text-gold-ink underline underline-offset-2">
+            Zarządzaj subskrypcją
+          </button>
+        </form>
+      ) : (
+        <form action="/api/billing/checkout" method="post" className="mt-5 flex flex-col gap-3 border-t border-line pt-4">
+          <label className="flex items-start gap-2.5 text-left text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              name="immediate_start_consent"
+              value="true"
+              required
+              className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
+            />
+            <span>
+              Żądam niezwłocznego rozpoczęcia świadczenia Usługi i przyjmuję do wiadomości, że po
+              jej pełnym wykonaniu utracę prawo odstąpienia od Umowy.
+            </span>
+          </label>
+          <button type="submit" className="btn btn-primary w-full">
+            Rozpocznij okres próbny
+          </button>
+        </form>
+      )}
     </div>
   );
 }

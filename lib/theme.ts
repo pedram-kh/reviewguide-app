@@ -34,6 +34,6 @@ export const PAGE_BACKGROUND = "min-h-screen bg-gradient-to-br from-indigo-50 vi
  */
 export const CUSTOMER_PAGE_BACKGROUND = "customer-shell min-h-screen bg-cream text-ink";
 
-export const CUSTOMER_NAV = "border-b border-line bg-cream/90 backdrop-blur-xl";
+export const CUSTOMER_NAV = "sticky top-0 z-[70] border-b border-line bg-cream/90 backdrop-blur-xl";
 
 export const CUSTOMER_CARD = "rg-card";

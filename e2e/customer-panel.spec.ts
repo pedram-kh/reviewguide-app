@@ -160,7 +160,7 @@ test.describe("customer panel — connect-restaurant flow", () => {
 
     // The connect landed and the panel says so honestly: connected, drafts still being written.
     await expect(page.getByText("Restauracja połączona — przygotowujemy odpowiedzi")).toBeVisible();
-    await expect(page.getByText("Połączona restauracja")).toBeVisible();
+    await expect(page.getByText("monitoring aktywny")).toBeVisible();
     await expect(page.getByText("Pizzeria Testowa").first()).toBeVisible();
     // The finished-run card must NOT be claiming anything yet.
     await expect(page.getByText("Odpowiedzi gotowe!")).toHaveCount(0);
@@ -279,3 +279,170 @@ test.describe("customer panel — alerts list", () => {
     await expect(normalItem.getByText("PILNE")).toHaveCount(0);
   });
 });
+
+const PANEL_STATE = {
+  email: "panel-e2e@example.com",
+  notification_email: "panel-e2e@example.com",
+  tone_preference: "formal",
+  connected_at: new Date().toISOString(),
+  day_one: {
+    status: "done",
+    summary: {
+      fetched_from_api: true,
+      reviews_considered: 3,
+      reviews_qualifying: 3,
+      drafts_generated: 3,
+      digest_sent: true,
+      capped: false,
+      cap_error: null,
+    },
+  },
+  place: {
+    place_id: "p-panel",
+    name: "Bar Panelowy",
+    address: "ul. Panelowa 3",
+    rating: 4.4,
+    last_polled_at: new Date().toISOString(),
+  },
+};
+
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+const PANEL_ALERTS = [
+  {
+    alert_id: 1,
+    review_id: "r-today-urgent",
+    review_text: "Zimna zupa dzisiaj.",
+    review_rating: 2,
+    review_date: daysAgo(0),
+    response_text: "Bardzo nam przykro za dzisiejszą wizytę.",
+    is_urgent: true,
+    kind: "alert",
+    sent_at: null,
+    created_at: daysAgo(0),
+  },
+  {
+    alert_id: 2,
+    review_id: "r-today-ok",
+    review_text: "Pyszne pierogi dzisiaj.",
+    review_rating: 5,
+    review_date: daysAgo(0),
+    response_text: "Dziękujemy za dzisiejszą opinię!",
+    is_urgent: false,
+    kind: "digest",
+    sent_at: null,
+    created_at: daysAgo(0),
+  },
+  {
+    alert_id: 3,
+    review_id: "r-older",
+    review_text: "Wczoraj było tłoczno.",
+    review_rating: 4,
+    review_date: daysAgo(3),
+    response_text: "Cieszymy się, że zajrzeli Państwo mimo tłoku.",
+    is_urgent: false,
+    kind: "digest",
+    sent_at: null,
+    created_at: daysAgo(3),
+  },
+];
+
+async function openPanel(page: import("@playwright/test").Page, email = "panel-e2e@example.com") {
+  const customerId = uniqueCustomerId();
+  await setFixture(customerId, {
+    customerState: { ...PANEL_STATE, email, notification_email: email },
+    billingStatus: { subscription_status: "trialing", has_subscription_ever_started: true },
+    alerts: PANEL_ALERTS,
+  });
+  await loginAs(page, email, customerId);
+  await page.goto("/app");
+  return customerId;
+}
+
+test.describe("customer panel — ticket 6.9 restructure", () => {
+  test("account menu opens and closes (drawer on mobile, dropdown on desktop)", async ({
+    page,
+  }, testInfo) => {
+    const email = "menu-e2e@example.com";
+    await openPanel(page, email);
+    const isMobile = testInfo.project.name === "mobile-chromium";
+
+    if (isMobile) {
+      await page.getByRole("button", { name: "Otwórz menu" }).click();
+      const menu = page.getByRole("dialog", { name: "Menu konta" });
+      await expect(menu).toBeVisible();
+      await expect(menu.getByText(email)).toBeVisible();
+      await expect(menu.getByRole("link", { name: "Ustawienia" })).toBeVisible();
+      await expect(menu.getByRole("button", { name: "Zarządzaj subskrypcją" })).toBeVisible();
+      await expect(menu.getByRole("button", { name: "Wyloguj" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+    } else {
+      await page.getByRole("button", { name: `Konto ${email}` }).click();
+      const menu = page.getByRole("menu", { name: "Menu konta" });
+      await expect(menu).toBeVisible();
+      await expect(menu.getByText(email)).toBeVisible();
+      await expect(menu.getByRole("link", { name: "Ustawienia" })).toBeVisible();
+      await expect(menu.getByRole("button", { name: "Zarządzaj subskrypcją" })).toBeVisible();
+      await expect(menu.getByRole("button", { name: "Wyloguj" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveCount(0);
+    }
+  });
+
+  test("tabs switch and stay in sync with the URL", async ({ page }) => {
+    await openPanel(page);
+    await expect(page.getByRole("tab", { name: "Najnowsze" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByText("Zimna zupa dzisiaj.")).toBeVisible();
+    // Older day's review must not appear on Najnowsze.
+    await expect(page.getByText("Wczoraj było tłoczno.")).toHaveCount(0);
+
+    await page.getByRole("tab", { name: /Historia/ }).click();
+    await expect(page).toHaveURL(/tab=historia/);
+    await expect(page.getByRole("tab", { name: /Historia/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("columnheader", { name: "Data" })).toBeVisible();
+
+    await page.reload();
+    await expect(page).toHaveURL(/tab=historia/);
+    await expect(page.getByRole("tab", { name: /Historia/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("columnheader", { name: "Data" })).toBeVisible();
+
+    await page.getByRole("tab", { name: "Ustawienia" }).click();
+    await expect(page).toHaveURL(/tab=ustawienia/);
+    await expect(page.getByText("Adres e-mail do powiadomień")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Zarządzaj subskrypcją" })).toBeVisible();
+  });
+
+  test("copy button flips to the green Skopiowano state, then reverts", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await openPanel(page);
+    const button = page.getByRole("button", { name: "Kopiuj" }).first();
+    await button.click();
+    const copied = page.getByRole("button", { name: "Skopiowano ✓" }).first();
+    await expect(copied).toBeVisible();
+    await expect(copied).toHaveAttribute("data-copied", "true");
+    await expect(page.getByRole("button", { name: "Kopiuj" }).first()).toBeVisible({ timeout: 4000 });
+    await expect(page.getByRole("button", { name: "Kopiuj" }).first()).toHaveAttribute("data-copied", "false");
+  });
+
+  test("Historia row click expands that day's review cards inline", async ({ page }) => {
+    await openPanel(page);
+    await page.getByRole("tab", { name: /Historia/ }).click();
+
+    const newestRow = page.locator("[data-history-row]").first();
+    await expect(newestRow).toHaveAttribute("data-expanded", "false");
+    await newestRow.click();
+    await expect(newestRow).toHaveAttribute("data-expanded", "true");
+    await expect(page.getByText("Zimna zupa dzisiaj.")).toBeVisible();
+    await expect(page.getByText("Pyszne pierogi dzisiaj.")).toBeVisible();
+    // The older day stays collapsed.
+    await expect(page.getByText("Wczoraj było tłoczno.")).toHaveCount(0);
+
+    await newestRow.click();
+    await expect(newestRow).toHaveAttribute("data-expanded", "false");
+    await expect(page.getByText("Zimna zupa dzisiaj.")).toHaveCount(0);
+  });
+});
+
