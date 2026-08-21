@@ -257,6 +257,23 @@ export function getCustomer(customerId: number): Promise<CustomerDetail> {
   return backendFetch<CustomerDetail>(`/api/admin/customers/${customerId}`);
 }
 
+// Ticket 6.18 — the panel's first write action, ending the "manual UPDATE over the bastion
+// tunnel" era for the recurring is_test mis-flag (customers 16, 18/19, 20, 25/26). Narrow on
+// purpose: only is_test is writable, same scope the backend's PATCH endpoint enforces.
+export interface CustomerPatchBody {
+  is_test: boolean;
+}
+
+export function patchCustomer(
+  customerId: number,
+  body: CustomerPatchBody
+): Promise<CustomerDetail> {
+  return backendFetch<CustomerDetail>(`/api/admin/customers/${customerId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 // --- poll runs (ticket 6.4, admin observability for the 2h poller — read-only) -----------------
 
 export interface PollRunListItem {

@@ -271,6 +271,17 @@ const server = createServer(async (req, res) => {
     return sendJson(res, 200, ADMIN_CUSTOMER_DETAIL);
   }
 
+  // Ticket 6.18 — the admin panel's first write action. Mutates the shared fixture object in
+  // place (a plain `const`, not deep-frozen) and echoes the full updated shape back, matching
+  // the real backend's PATCH /api/admin/customers/{id} contract.
+  if (req.method === "PATCH" && url.pathname.startsWith("/api/admin/customers/")) {
+    const body = await readBody(req).catch(() => ({}));
+    if (typeof body.is_test === "boolean") {
+      ADMIN_CUSTOMER_DETAIL.is_test = body.is_test;
+    }
+    return sendJson(res, 200, ADMIN_CUSTOMER_DETAIL);
+  }
+
   sendJson(res, 404, { detail: `stub-backend: no fixture route for ${req.method} ${url.pathname}` });
 });
 

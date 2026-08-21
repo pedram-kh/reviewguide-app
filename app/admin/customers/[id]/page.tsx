@@ -11,6 +11,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { GLASS_CARD } from "@/lib/theme";
 
 import { Accordion } from "../../Accordion";
+import { IsTestToggle } from "./IsTestToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -55,11 +56,11 @@ function CustomerDetailView({ customer }: { customer: CustomerDetail }) {
       <section className={`${GLASS_CARD} p-6`}>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900">{customer.email}</h1>
-          {customer.is_test && (
-            <span className="rounded-full bg-zinc-200/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">
-              test account
-            </span>
-          )}
+          {/* Ticket 6.18: was a static badge shown only when is_test — now always visible and
+              read-write, since "real" needs the same at-a-glance-and-correctable treatment as
+              "test" (see docs/sprints/SPRINT_06.md's 6.18 section on why this was made writable
+              rather than just relabeled). */}
+          <IsTestToggle customerId={customer.customer_id} initial={customer.is_test} />
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <Field label="Notification email" value={customer.notification_email ?? "—"} />
