@@ -1,4 +1,7 @@
-import { warsawDayKey } from "@/lib/format";
+// Relative import (not the "@/lib/format" alias used elsewhere) so this module resolves under
+// plain `node --test` too, matching format.test.ts's own node:test setup — the alias only
+// resolves via Next.js's own bundler/tsconfig paths, which the test runner doesn't use.
+import { warsawDayKey } from "./format.ts";
 
 /** Structural slice of a customer alert — kept local so this module can be imported from
  *  client components without pulling in lib/customerApi.ts (`import "server-only"`). */
@@ -29,7 +32,12 @@ export function sortNajnowsze<T extends GroupableAlert>(alerts: T[]): T[] {
 export function groupAlertsByWarsawDay<T extends GroupableAlert>(alerts: T[]): DayGroup<T>[] {
   const map = new Map<string, T[]>();
   for (const alert of alerts) {
-    const key = warsawDayKey(alert.created_at);
+    // Ticket 6.16 (fixes Q2 of the 6.15 investigation): a day-one digest can bundle reviews far
+    // older than the connect date, and this key drives BOTH the Historia day header the customer
+    // reads and Najnowsze's "which day is newest" selection — created_at alone made a month-old
+    // review surface as "today". `review_date` is the actual review date and is preferred; the
+    // fallback covers any legacy/malformed row where it's ever null.
+    const key = warsawDayKey(alert.review_date ?? alert.created_at);
     const list = map.get(key);
     if (list) list.push(alert);
     else map.set(key, [alert]);
