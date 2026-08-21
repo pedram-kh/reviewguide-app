@@ -72,6 +72,12 @@ test.describe("customer panel — connect-restaurant flow", () => {
         day_one: { status: "not_started", summary: null },
         place: null,
       },
+      // Ticket 6.17 (partner feedback 11+12): this test is the pay-then-connect order — already
+      // eligible, connecting now — the one order day-one still legitimately fires for and the
+      // hero may honestly say "monitoring aktywny" (this test's whole point is the progress→ready
+      // transition, not the subscription gate itself; that gate gets its own dedicated tests
+      // below, "customer panel — subscription gate").
+      billingStatus: { subscription_status: "trialing", has_subscription_ever_started: true },
     });
     await loginAs(page, "connect-e2e@example.com", customerId);
 
@@ -559,6 +565,89 @@ test.describe("customer panel — ticket 6.9 restructure", () => {
     await newestRow.click();
     await expect(newestRow).toHaveAttribute("data-expanded", "false");
     await expect(page.getByText("Zimna zupa dzisiaj.")).toHaveCount(0);
+  });
+});
+
+// Ticket 6.17 (partner feedback 11+12): connect-then-pay order, the partner's own reported bug —
+// a place connected with no eligible (trialing/active) subscription must show inactive monitoring
+// and a real, in-place activation CTA, never "monitoring aktywny" nor the generic "no alerts yet"
+// empty state that implies the service is running when day-one has been gated (see
+// app.jobs.day_one.claim_day_one_start on the backend).
+test.describe("customer panel — subscription gate (ticket 6.17)", () => {
+  const UNSUBSCRIBED_STATE = {
+    email: "unsub-e2e@example.com",
+    notification_email: "unsub-e2e@example.com",
+    tone_preference: "formal",
+    connected_at: new Date().toISOString(),
+    // The exact shape the gate produces on the backend: connected, but day-one never claimed
+    // (app.routers.customer.connect_place's `claim_day_one_start` returned False) because there
+    // was no eligible subscription at connect time.
+    day_one: { status: "not_started", summary: null },
+    place: {
+      place_id: "p-unsub",
+      name: "Bar Bez Karty",
+      address: "ul. Bez Karty 7",
+      rating: 4.0,
+      last_polled_at: null,
+    },
+  };
+
+  async function openUnsubscribedPanel(page: import("@playwright/test").Page) {
+    const customerId = uniqueCustomerId();
+    await setFixture(customerId, {
+      customerState: UNSUBSCRIBED_STATE,
+      billingStatus: { subscription_status: "none", has_subscription_ever_started: false },
+      alerts: [],
+    });
+    await loginAs(page, "unsub-e2e@example.com", customerId);
+    await page.goto("/app");
+    return customerId;
+  }
+
+  test("hero shows inactive monitoring and the primary activation CTA, not the trial-nudge link", async ({
+    page,
+  }) => {
+    await openUnsubscribedPanel(page);
+
+    await expect(page.getByText("Bar Bez Karty")).toBeVisible();
+    await expect(page.getByText("monitoring nieaktywny — dodaj kartę, aby rozpocząć")).toBeVisible();
+    await expect(page.getByText("monitoring aktywny")).toHaveCount(0);
+
+    // The primary CTA is the real checkout form, right here — not a link into Ustawienia.
+    await expect(page.getByText("Aktywuj monitoring")).toBeVisible();
+    const activationButton = page.getByRole("button", { name: "Dodaj kartę, aby rozpocząć" });
+    await expect(activationButton).toBeVisible();
+    const activationForm = page.locator("form", { has: activationButton });
+    await expect(activationForm).toHaveAttribute("action", "/api/billing/checkout");
+    await expect(activationForm.locator('input[name="immediate_start_consent"]')).toHaveAttribute(
+      "required",
+      ""
+    );
+  });
+
+  test("Najnowsze and Historia show the activation-aware empty state, not the generic one", async ({
+    page,
+  }) => {
+    await openUnsubscribedPanel(page);
+
+    await expect(page.getByText("Twoje odpowiedzi pojawią się po aktywacji.")).toBeVisible();
+    await expect(page.getByText("Nie masz jeszcze żadnych alertów")).toHaveCount(0);
+
+    await page.getByRole("tab", { name: /Historia/ }).click();
+    await expect(page.getByText("Twoje odpowiedzi pojawią się po aktywacji.")).toBeVisible();
+    await expect(page.getByText("Brak historii alertów.")).toHaveCount(0);
+  });
+
+  test("Ustawienia tab still offers the same activation CTA as a second access point", async ({
+    page,
+  }) => {
+    await openUnsubscribedPanel(page);
+
+    await page.getByRole("tab", { name: /Ustawienia/ }).click();
+    const settingsButton = page.getByRole("button", { name: "Dodaj kartę, aby rozpocząć" });
+    await expect(settingsButton).toBeVisible();
+    const settingsForm = page.locator("form", { has: settingsButton });
+    await expect(settingsForm).toHaveAttribute("action", "/api/billing/checkout");
   });
 });
 

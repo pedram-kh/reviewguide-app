@@ -365,6 +365,18 @@ body {
   animation: pulse-dot 2s ease-out infinite;
 }
 
+/* Ticket 6.17 (partner feedback 11+12): a connected-but-unsubscribed hero must not visually claim
+   live monitoring — no pulse animation, no glow, just a static dot matching the muted status-chip
+   palette already used for "Brak subskrypcji" etc. */
+.pulse-dot-inactive {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--line);
+}
+
 @keyframes pulse-dot {
   0% {
     box-shadow: 0 0 0 0 rgba(255, 158, 0, 0.55);

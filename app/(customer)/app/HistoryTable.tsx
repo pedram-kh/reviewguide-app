@@ -13,7 +13,16 @@ import { AlertsList } from "./AlertsList";
  * to that day's review+response cards (the existing AlertsList, not /admin Accordion — that
  * component is zinc/glass and lives in the out-of-scope admin tree).
  */
-export function HistoryTable({ groups }: { groups: DayGroup<AlertItem>[] }) {
+export function HistoryTable({
+  groups,
+  empty,
+}: {
+  groups: DayGroup<AlertItem>[];
+  // Ticket 6.17 (partner feedback 11+12): mirrors AlertsList's own `empty` override — a
+  // connected-but-unsubscribed customer's empty Historia is a gated-day-one fact, not a "nothing
+  // has happened yet" one, same reasoning as CustomerPanel's `inactiveEmptyMessage`.
+  empty?: string;
+}) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
   function toggle(key: string) {
@@ -26,7 +35,7 @@ export function HistoryTable({ groups }: { groups: DayGroup<AlertItem>[] }) {
   }
 
   if (groups.length === 0) {
-    return <p className="text-sm text-ink-soft">Brak historii alertów.</p>;
+    return <p className="text-sm text-ink-soft">{empty ?? "Brak historii alertów."}</p>;
   }
 
   return (

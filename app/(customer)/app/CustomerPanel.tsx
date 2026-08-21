@@ -155,6 +155,11 @@ export function CustomerPanel({
   const groups = groupAlertsByWarsawDay(alerts ?? []);
   const najnowsze = latestDayAlerts(alerts ?? []);
   const recentUrgent = urgentCountLast7Days(alerts ?? []);
+  // Ticket 6.17 (partner feedback 11+12): a connected-but-unsubscribed customer has zero alerts
+  // for a structural reason (day-one is gated — see app.jobs.day_one.claim_day_one_start), not
+  // because nothing has happened yet. The generic "nie masz jeszcze żadnych alertów" empty state
+  // implies the latter and must not render here.
+  const inactiveEmptyMessage = isSubscribed ? undefined : "Twoje odpowiedzi pojawią się po aktywacji.";
 
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
@@ -209,8 +214,15 @@ export function CustomerPanel({
         lastPolledAt={state.place.last_polled_at}
         subscriptionStatus={subscriptionStatus}
         isSubscribed={isSubscribed}
-        onStartTrial={() => selectTab("ustawienia")}
       />
+
+      {/* Ticket 6.17 (partner feedback 11+12): the primary CTA for a connected-but-unsubscribed
+          customer is now this card — a real checkout form (consent checkbox included), not a
+          link that merely navigates to Ustawienia and makes the customer find the form there
+          themselves. Ustawienia's own copy of this form (SettingsCard below) stays as a second,
+          equally-valid access point — hidden here only while that tab is already open, so the
+          customer is never shown the identical form twice on one screen at once. */}
+      {!isSubscribed && tab !== "ustawienia" && <CheckoutActivationCard />}
 
       <div>
         <div className="panel-tabs" role="tablist" aria-label="Panel restauracji">
@@ -245,6 +257,7 @@ export function CustomerPanel({
             <AlertsList
               alerts={alerts === null ? null : najnowsze}
               loading={alertsLoading}
+              empty={inactiveEmptyMessage}
             />
           )}
           {tab === "historia" &&
@@ -252,7 +265,7 @@ export function CustomerPanel({
               <p className="text-sm text-ink-soft">Wczytywanie alertów…</p>
             ) : (
               <div className={`${CUSTOMER_CARD} p-2 sm:p-4`}>
-                <HistoryTable groups={groups} />
+                <HistoryTable groups={groups} empty={inactiveEmptyMessage} />
               </div>
             ))}
           {tab === "ustawienia" && (
@@ -271,7 +284,6 @@ function RestaurantHero({
   lastPolledAt,
   subscriptionStatus,
   isSubscribed,
-  onStartTrial,
 }: {
   name: string;
   address: string | null;
@@ -279,7 +291,6 @@ function RestaurantHero({
   lastPolledAt: string | null;
   subscriptionStatus: string;
   isSubscribed: boolean;
-  onStartTrial: () => void;
 }) {
   const chip = STATUS_CHIP[subscriptionStatus] ?? {
     label: subscriptionStatus,
@@ -299,25 +310,81 @@ function RestaurantHero({
         <span className={chip.className}>{chip.label}</span>
       </div>
 
-      <p className="mt-5 flex items-center gap-2 text-sm text-ink-soft">
-        <span className="pulse-dot" aria-hidden="true" />
-        <span>
-          monitoring aktywny · ostatnie sprawdzenie:{" "}
-          <time dateTime={lastPolledAt ?? undefined}>
-            {lastPolledAt ? formatDateTimePl(lastPolledAt) : "jeszcze nie sprawdzono"}
-          </time>
-        </span>
-      </p>
-
-      {!isSubscribed && (
-        <p className="mt-4 text-sm text-ink-soft">
-          Subskrypcja nieaktywna.{" "}
-          <button type="button" onClick={onStartTrial} className="font-semibold text-gold-ink underline underline-offset-2">
-            Rozpocznij okres próbny
-          </button>{" "}
-          w Ustawieniach.
+      {/* Ticket 6.17 (partner feedback 11+12): this line must never claim active monitoring for
+          an account backend/day_one.py's own gate has not actually started polling/day-one for —
+          the poller's own ELIGIBLE_STATUSES check (LOGIC.md §8a) means an unsubscribed connected
+          place genuinely receives nothing yet, so saying otherwise here would be a second copy of
+          the exact bug this ticket fixes on the backend. */}
+      {isSubscribed ? (
+        <p className="mt-5 flex items-center gap-2 text-sm text-ink-soft">
+          <span className="pulse-dot" aria-hidden="true" />
+          <span>
+            monitoring aktywny · ostatnie sprawdzenie:{" "}
+            <time dateTime={lastPolledAt ?? undefined}>
+              {lastPolledAt ? formatDateTimePl(lastPolledAt) : "jeszcze nie sprawdzono"}
+            </time>
+          </span>
+        </p>
+      ) : (
+        <p className="mt-5 flex items-center gap-2 text-sm text-ink-soft">
+          <span className="pulse-dot-inactive" aria-hidden="true" />
+          <span>monitoring nieaktywny — dodaj kartę, aby rozpocząć</span>
         </p>
       )}
+    </div>
+  );
+}
+
+// Ticket 6.17 (partner feedback 11+12): the exact form CheckoutActivationCard (primary CTA, on
+// the main panel) and SettingsCard's Ustawienia copy (secondary access point) both need — same
+// endpoint, same consent requirement (ticket 6.6 part C, ToS §8.3's withdrawal-waiver), same
+// button text, so the two cannot silently drift into saying different things about the same
+// action. `formId` keeps each rendered <input>/<button> pair's ids unique when both could in
+// principle be mounted at once (they cannot today — CheckoutActivationCard only renders on the
+// connected view, SettingsCard's unsubscribed branch on the Ustawienia tab of that same view —
+// but unique ids cost nothing and avoid relying on that not changing).
+function CheckoutForm({ formId }: { formId: string }) {
+  return (
+    <form
+      action="/api/billing/checkout"
+      method="post"
+      className="flex flex-col gap-3"
+    >
+      <label
+        htmlFor={`${formId}-consent`}
+        className="flex items-start gap-2.5 text-left text-sm text-ink-soft"
+      >
+        <input
+          id={`${formId}-consent`}
+          type="checkbox"
+          name="immediate_start_consent"
+          value="true"
+          required
+          className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
+        />
+        <span>
+          Żądam niezwłocznego rozpoczęcia świadczenia Usługi i przyjmuję do wiadomości, że po jej
+          pełnym wykonaniu utracę prawo odstąpienia od Umowy.
+        </span>
+      </label>
+      <button type="submit" className="btn btn-primary w-full">
+        Dodaj kartę, aby rozpocząć
+      </button>
+    </form>
+  );
+}
+
+function CheckoutActivationCard() {
+  return (
+    <div className={`${CUSTOMER_CARD} p-6 sm:p-8`}>
+      <p className="text-sm font-semibold text-ink">Aktywuj monitoring</p>
+      <p className="mt-1 text-sm text-ink-soft">
+        Restauracja jest połączona, ale monitoring i odpowiedzi na recenzje ruszą po dodaniu
+        karty — 14 dni okresu próbnego, zero dodatkowych kroków później.
+      </p>
+      <div className="mt-4">
+        <CheckoutForm formId="activation-checkout" />
+      </div>
     </div>
   );
 }
@@ -354,24 +421,9 @@ function SettingsCard({
           </button>
         </form>
       ) : (
-        <form action="/api/billing/checkout" method="post" className="mt-5 flex flex-col gap-3 border-t border-line pt-4">
-          <label className="flex items-start gap-2.5 text-left text-sm text-ink-soft">
-            <input
-              type="checkbox"
-              name="immediate_start_consent"
-              value="true"
-              required
-              className="mt-0.5 size-4 shrink-0 rounded border-line accent-[var(--gold-deep)]"
-            />
-            <span>
-              Żądam niezwłocznego rozpoczęcia świadczenia Usługi i przyjmuję do wiadomości, że po
-              jej pełnym wykonaniu utracę prawo odstąpienia od Umowy.
-            </span>
-          </label>
-          <button type="submit" className="btn btn-primary w-full">
-            Rozpocznij okres próbny
-          </button>
-        </form>
+        <div className="mt-5 border-t border-line pt-4">
+          <CheckoutForm formId="settings-checkout" />
+        </div>
       )}
     </div>
   );
