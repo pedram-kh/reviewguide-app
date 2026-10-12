@@ -4,10 +4,10 @@ import {
   listLeads,
   type LeadListFilters,
   type LeadListItem,
-  type LeadSort,
   type LeadStatus,
 } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { resolveLeadSort } from "@/lib/leadSort";
 import { GLASS_CARD } from "@/lib/theme";
 
 import { LeadsFilterBar } from "./LeadsFilterBar";
@@ -35,7 +35,8 @@ export default async function LeadsPage({
     channel: first(sp.channel),
     health_flag: first(sp.health_flag) === undefined ? undefined : first(sp.health_flag) === "true",
     search: first(sp.search),
-    sort: (first(sp.sort) as LeadSort | undefined) ?? "review_date_desc",
+    // Default depends on the view: status=queued -> expiring soonest (see lib/leadSort.ts).
+    sort: resolveLeadSort(first(sp.sort), first(sp.status)),
   };
 
   let leads: LeadListItem[] = [];

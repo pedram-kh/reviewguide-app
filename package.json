@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:format": "node --test lib/format.test.ts",
     "test:alert-groups": "node --test lib/alertGroups.test.ts",
+    "test:lead-sort": "node --test lib/leadSort.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

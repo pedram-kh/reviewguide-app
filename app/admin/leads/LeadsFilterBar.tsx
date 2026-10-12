@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import type { LeadSort, LeadStatus } from "@/lib/api";
+import { resolveLeadSort } from "@/lib/leadSort";
 import { GLASS_CARD } from "@/lib/theme";
 
 const STATUS_OPTIONS: LeadStatus[] = [
@@ -21,7 +22,7 @@ const CHANNEL_OPTIONS = ["facebook", "email", "contact_form"];
 
 const SORT_OPTIONS: { value: LeadSort; label: string }[] = [
   { value: "review_date_desc", label: "Newest review first" },
-  { value: "review_date_asc", label: "Oldest review first" },
+  { value: "review_date_asc", label: "Expiring soonest (oldest review first)" },
   { value: "created_at", label: "Created at" },
 ];
 
@@ -97,7 +98,10 @@ export function LeadsFilterBar() {
 
       <Field label="Sort">
         <select
-          value={searchParams.get("sort") ?? "review_date_desc"}
+          value={resolveLeadSort(
+            searchParams.get("sort") ?? undefined,
+            searchParams.get("status") ?? undefined
+          )}
           onChange={(e) => updateParam("sort", e.target.value)}
           className="rounded-lg border border-zinc-300/80 bg-white/80 px-2 py-1.5 text-sm"
         >
